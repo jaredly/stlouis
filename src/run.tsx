@@ -19,9 +19,14 @@ const roadsPrj =
 const toStl = proj4(roadsPrj, stlProj);
 const fromStl = proj4(stlProj, roadsPrj);
 
-// const proj2 = '+proj=longlat +ellps=WGS84 +datum=WGS84 +units=degrees +axis=neu';
-
-const toShow = ['primary', 'tertiary', 'secondary', 'motorway', 'trunk'];
+const toShow = [
+    'residential',
+    'primary',
+    'tertiary',
+    'secondary',
+    'motorway',
+    'trunk',
+];
 
 const colors =
     'red orange green blue purple magenta teal gray black cyan pink #faf #faa'.split(
@@ -30,14 +35,27 @@ const colors =
 
 type Pos = { x: number; y: number };
 
+const roadScale = 0;
+
+const sizes: { [key: string]: number } = {
+    trunk: 6,
+    motorway: 6,
+    primary: 4,
+    secondary: 2,
+    tertiary: 1,
+    residential: 0.5,
+};
+
 const App = ({
     types,
     boundary,
     places,
+    fontUrl,
 }: {
     types: { [key: string]: Array<Feature> };
     boundary: FeatureCollection;
     places: { [key: string]: Array<Feature> };
+    fontUrl: string;
 }) => {
     const [scale, setScale] = React.useState({ dx: 0, dy: 0, x: 1, y: 1 });
     const [moving, setMoving] = React.useState();
@@ -46,12 +64,13 @@ const App = ({
     const [pos, setPos] = React.useState(null as null | Pos);
     const bounds = React.useMemo(() => {
         let [x0, y0, x1, y1] = boundary.bbox!;
-        // [x0, y0] = fromStl.forward([x0, y0]);
-        // [x1, y1] = fromStl.forward([x1, y1]);
+        y1 = 1047986.8701159965;
+        y0 = 989536.881186489;
+        x1 = 911486.1515920038;
         return { x0, y0, x1, y1 };
     }, [boundary.bbox]);
 
-    const w = 500;
+    const w = 650;
     const dx = bounds.x1 - bounds.x0;
     const dy = bounds.y1 - bounds.y0;
     const h = (dy / dx) * w;
@@ -70,7 +89,17 @@ const App = ({
 
     const t = Object.keys(types)
         .sort((a, b) => types[b].length - types[a].length)
-        .filter((t) => toShow.includes(t));
+        .filter(
+            (t) =>
+                t !== 'service' &&
+                t !== 'footway' &&
+                t !== 'pedestrian' &&
+                t !== 'steps' &&
+                t !== 'elevator' &&
+                t !== 'living_street' &&
+                t !== 'path',
+        );
+    // .filter((t) => toShow.includes(t));
 
     return (
         <div>
@@ -105,8 +134,11 @@ const App = ({
                 ))}
             </div>
             <svg
-                width={w}
-                height={h}
+                width={w / 3 + 'mm'}
+                height={h / 3 + 'mm'}
+                viewBox={`${0} ${0} ${w} ${h}`}
+                style={{ margin: 24 }}
+                xmlns={'http://www.w3.org/2000/svg'}
                 onClick={(evt) => {
                     const b = evt.currentTarget.getBoundingClientRect();
                     setPos(
@@ -117,13 +149,28 @@ const App = ({
                     );
                 }}
             >
+                <defs>
+                    <style
+                        dangerouslySetInnerHTML={{
+                            __html: `
+						@font-face {
+							font-family: 'OpenSans';
+							src: url('data:font/ttf;${fontUrl}');
+							font-style: normal;
+						}
+					`,
+                        }}
+                    />
+                </defs>
                 {t.map((k, ti) =>
                     types[k].map((shape, i) => (
                         <polyline
                             fill="none"
                             key={ti + ':' + i}
-                            stroke={colors[ti % colors.length]}
-                            strokeWidth={selected === k ? 2 : 0.5}
+                            // stroke={colors[ti % colors.length]}
+                            stroke="red"
+                            strokeWidth={sizes[k] || 0.5}
+                            strokeLinecap="round"
                             points={(shape.geometry as LineString).coordinates
                                 .map(toStl.forward)
                                 .map(showPos)
@@ -155,14 +202,31 @@ const App = ({
                             );
                             return (
                                 <React.Fragment key={pi + ':' + i}>
-                                    <circle cx={x} cy={y} r={2} fill="red" />
                                     <text
                                         x={x}
                                         y={y}
                                         style={{
                                             fontSize: 6,
                                             textAnchor: 'middle',
+                                            fontFamily: 'OpenSans',
                                         }}
+                                        stroke="white"
+                                        fill="black"
+                                        strokeWidth={3}
+                                        strokeLinejoin="round"
+                                        strokeLinecap="round"
+                                    >
+                                        {place.properties!.name}
+                                    </text>
+                                    <text
+                                        x={x}
+                                        y={y}
+                                        style={{
+                                            fontSize: 6,
+                                            textAnchor: 'middle',
+                                            fontFamily: 'OpenSans',
+                                        }}
+                                        fill="black"
                                     >
                                         {place.properties!.name}
                                     </text>
@@ -171,7 +235,7 @@ const App = ({
                         }),
                 )}
             </svg>
-            {JSON.stringify(pos)}
+            <div>{JSON.stringify(pos)}</div>
         </div>
     );
 };
@@ -188,8 +252,19 @@ const getShp = (name: string) => {
 };
 
 const run = async () => {
-    const [roads, boundary, places] = await Promise.all([
+    const [roads, fontUrl, boundary, places] = await Promise.all([
         fetch('./roads.json').then((r) => r.json()),
+        fetch(
+            '/data/Open_Sans/static/OpenSans_Condensed/OpenSans_Condensed-Light.ttf',
+        )
+            .then((r) => r.blob())
+            .then((b) => {
+                return new Promise((res) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(b);
+                    reader.onloadend = () => res(reader.result);
+                });
+            }),
         getShp('./data/stl_boundary/stl_boundary'),
         getShp('./data/places'),
     ]);
@@ -203,7 +278,9 @@ const run = async () => {
     delete pt['island'];
     delete pt['locality'];
     console.log(pt);
-    root.render(<App types={roads} boundary={boundary} places={pt} />);
+    root.render(
+        <App types={roads} boundary={boundary} places={pt} fontUrl={fontUrl} />,
+    );
 };
 
 run().catch(console.error);

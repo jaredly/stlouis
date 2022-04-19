@@ -18,9 +18,9 @@ shapefile
     .catch((error) => console.error(error.stack))
     .then(() => {
         // console.log(JSON.stringify(types.primary[0], null, 2));
-        delete types['footway'];
-        delete types['service'];
-        delete types['residential'];
+        // delete types['footway'];
+        // delete types['service'];
+        // delete types['residential'];
         fs.writeFileSync('./roads.json', JSON.stringify(types));
     });
 
