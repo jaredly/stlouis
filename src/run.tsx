@@ -19,19 +19,19 @@ const roadsPrj =
 const toStl = proj4(roadsPrj, stlProj);
 const fromStl = proj4(stlProj, roadsPrj);
 
-const toShow = [
-    'residential',
-    'primary',
-    'tertiary',
-    'secondary',
-    'motorway',
-    'trunk',
-];
+// const toShow = [
+//     'residential',
+//     'primary',
+//     'tertiary',
+//     'secondary',
+//     'motorway',
+//     'trunk',
+// ];
 
-const colors =
-    'red orange green blue purple magenta teal gray black cyan pink #faf #faa'.split(
-        ' ',
-    );
+// const colors =
+//     'red orange green blue purple magenta teal gray black cyan pink #faf #faa'.split(
+//         ' ',
+//     );
 
 type Pos = { x: number; y: number };
 
@@ -45,6 +45,25 @@ const sizes: { [key: string]: number } = {
     tertiary: 1,
     residential: 0.5,
 };
+
+const colors: { [key: string]: string } = {
+    trunk: 'red',
+    motorway: 'red',
+    primary: '#f55',
+    secondary: '#faa',
+    tertiary: '#faa',
+    residential: '#fcc',
+};
+
+const skip = [
+    'service',
+    'footway',
+    'pedestrian',
+    'steps',
+    'elevator',
+    'living_street',
+    'path',
+];
 
 const App = ({
     types,
@@ -88,18 +107,8 @@ const App = ({
         `${((x - bounds.x0) / dx) * w},${(1 - (y - bounds.y0) / dy) * h}`;
 
     const t = Object.keys(types)
-        .sort((a, b) => types[b].length - types[a].length)
-        .filter(
-            (t) =>
-                t !== 'service' &&
-                t !== 'footway' &&
-                t !== 'pedestrian' &&
-                t !== 'steps' &&
-                t !== 'elevator' &&
-                t !== 'living_street' &&
-                t !== 'path',
-        );
-    // .filter((t) => toShow.includes(t));
+        .sort((a, b) => (sizes[a] || 0) - (sizes[b] || 0))
+        .filter((t) => !skip.includes(t));
 
     return (
         <div>
@@ -122,7 +131,6 @@ const App = ({
                                 width: 15,
                                 height: 15,
                                 display: 'inline-block',
-                                backgroundColor: colors[ti % colors.length],
                                 border: selected === t ? '1px solid white' : '',
                             }}
                             onClick={() =>
@@ -167,8 +175,7 @@ const App = ({
                         <polyline
                             fill="none"
                             key={ti + ':' + i}
-                            // stroke={colors[ti % colors.length]}
-                            stroke="red"
+                            stroke={colors[k] || '#fcc'}
                             strokeWidth={sizes[k] || 0.5}
                             strokeLinecap="round"
                             points={(shape.geometry as LineString).coordinates
@@ -178,6 +185,47 @@ const App = ({
                         />
                     )),
                 )}
+                {['trunk', 'motorway', 'primary'].map((k, ti) =>
+                    types[k].map((shape, i) => {
+                        const [x, y] = scalePos(
+                            toStl.forward(
+                                (shape.geometry as LineString).coordinates[0],
+                            ),
+                        );
+                        return (
+                            <React.Fragment key={i}>
+                                <text
+                                    x={x}
+                                    y={y}
+                                    style={{
+                                        fontSize: 4,
+                                        textAnchor: 'middle',
+                                        fontFamily: 'OpenSans',
+                                    }}
+                                    stroke="white"
+                                    fill="black"
+                                    strokeWidth={2}
+                                    strokeLinejoin="round"
+                                    strokeLinecap="round"
+                                >
+                                    {shape.properties!.name}
+                                </text>
+                                <text
+                                    x={x}
+                                    y={y}
+                                    style={{
+                                        fontSize: 4,
+                                        textAnchor: 'middle',
+                                        fontFamily: 'OpenSans',
+                                    }}
+                                    fill="black"
+                                >
+                                    {shape.properties!.name}
+                                </text>
+                            </React.Fragment>
+                        );
+                    }),
+                )}
                 {boundary.features.map((shape, i) => (
                     <polygon
                         fill="none"
@@ -185,8 +233,6 @@ const App = ({
                         stroke={'red'}
                         strokeWidth={1}
                         points={(shape.geometry as Polygon).coordinates[0]
-                            // .map(to)
-                            // .map((pos) => proj4(stlProj, roadsPrj, pos))
                             .map(showPos)
                             .join(' ')}
                     />
@@ -258,11 +304,11 @@ const run = async () => {
             '/data/Open_Sans/static/OpenSans_Condensed/OpenSans_Condensed-Light.ttf',
         )
             .then((r) => r.blob())
-            .then((b) => {
+            .then((b): Promise<string> => {
                 return new Promise((res) => {
                     const reader = new FileReader();
                     reader.readAsDataURL(b);
-                    reader.onloadend = () => res(reader.result);
+                    reader.onloadend = () => res(reader.result as string);
                 });
             }),
         getShp('./data/stl_boundary/stl_boundary'),
