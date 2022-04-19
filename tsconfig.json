@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "jsx": "react",
+        "resolveJsonModule": true,
+        "noEmit": true,
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "lib": ["es2016", "dom"],
+        "forceConsistentCasingInFileNames": true
+    }
+}
