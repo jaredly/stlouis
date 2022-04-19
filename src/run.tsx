@@ -299,7 +299,10 @@ const getShp = (name: string) => {
 
 const run = async () => {
     const [roads, fontUrl, boundary, places] = await Promise.all([
-        fetch('./roads.json').then((r) => r.json()),
+        fetch('./roads.json').then(
+            (r): Promise<{ [key: string]: Array<Feature<LineString>> }> =>
+                r.json(),
+        ),
         fetch(
             '/data/Open_Sans/static/OpenSans_Condensed/OpenSans_Condensed-Light.ttf',
         )
@@ -315,17 +318,25 @@ const run = async () => {
         getShp('./data/places'),
     ]);
     console.log('places', places);
-    const pt: { [key: string]: Array<Feature> } = {};
+
+    const placeTypes: { [key: string]: Array<Feature> } = {};
     places.features.forEach((p) => {
-        pt[p.properties!.type] = (pt[p.properties!.type] || []).concat([p]);
+        const type = p.properties!.type;
+        placeTypes[type] = (placeTypes[type] || []).concat([p]);
     });
-    delete pt['yes'];
-    delete pt['city'];
-    delete pt['island'];
-    delete pt['locality'];
-    console.log(pt);
+    delete placeTypes['yes'];
+    delete placeTypes['city'];
+    delete placeTypes['island'];
+    delete placeTypes['locality'];
+
+    console.log(placeTypes);
     root.render(
-        <App types={roads} boundary={boundary} places={pt} fontUrl={fontUrl} />,
+        <App
+            types={roads}
+            boundary={boundary}
+            places={placeTypes}
+            fontUrl={fontUrl}
+        />,
     );
 };
 
