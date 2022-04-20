@@ -11,11 +11,65 @@ import {
 } from './run';
 import { useDrag } from './useDrag';
 
+export const RenderText = React.memo(
+    ({
+        font,
+        text,
+        x,
+        y,
+        fontSize,
+        transform,
+    }: {
+        transform?: string;
+        font: opentype.Font;
+        text: string;
+        x: number;
+        y: number;
+        fontSize: number;
+    }) => {
+        const { path, w } = React.useMemo(() => {
+            const w = font.getAdvanceWidth(text, fontSize);
+            return {
+                w,
+                path: font.getPath(text, -w / 2, 0, fontSize).toPathData(3),
+            };
+        }, [text, x, y, fontSize]);
+        // transform-origin={`${x} ${y}`}>
+        return (
+            <g
+                transform={`translate(${x} ${y})`}
+                // transform={transform}
+                // transform-origin={`${x} ${y}`}
+            >
+                <path
+                    transform={transform}
+                    // transform-origin={`${x} ${y}`}
+                    d={path}
+                    fill="white"
+                    stroke="white"
+                    strokeWidth={2}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                />
+                <path
+                    transform={transform}
+                    // transform-origin={`${x} ${y}`}
+                    d={path}
+                    fill="black"
+                    stroke="none"
+                />
+            </g>
+        );
+    },
+);
+
 export const ShowNames = ({
     types,
     scalePos,
     centers,
+    font,
 }: {
+    font: opentype.Font;
     centers: Centers;
     scalePos: (pos: Position) => Position;
     types: {
@@ -64,16 +118,20 @@ export const ShowNames = ({
                     if (theta < -Math.PI / 2) {
                         theta += Math.PI;
                     }
+                    const off = 1;
                     const tx =
                         moving?.idx === id
                             ? `translate(${
-                                  (moving.pos.x - moving.origin.x) / 5
-                              }mm, ${(moving.pos.y - moving.origin.y) / 5}mm)`
+                                  (moving.pos.x - moving.origin.x) / off
+                              } ${(moving.pos.y - moving.origin.y) / off})`
                             : offsets[id]
-                            ? `translate(${offsets[id]!.x / 5}mm, ${
-                                  offsets[id]!.y / 5
-                              }mm)`
+                            ? `translate(${offsets[id]!.x / off} ${
+                                  offsets[id]!.y / off
+                              })`
                             : undefined;
+                    if (!shape.properties!.name) {
+                        return;
+                    }
                     return (
                         <g
                             key={i}
@@ -84,41 +142,17 @@ export const ShowNames = ({
                             style={{
                                 cursor: 'pointer',
                                 userSelect: 'none',
-                                transform: tx,
                             }}
+                            transform={tx}
                         >
-                            <text
+                            <RenderText
+                                font={font}
+                                text={shape.properties!.name}
                                 x={x}
                                 y={y}
-                                style={{
-                                    fontSize: fontSizes[k],
-                                    textAnchor: 'middle',
-                                    fontFamily: 'OpenSans',
-                                    transformOrigin: `${x}px ${y}px`,
-                                }}
+                                fontSize={fontSizes[k]}
                                 transform={`rotate(${(theta / Math.PI) * 180})`}
-                                stroke="white"
-                                fill="black"
-                                strokeWidth={2}
-                                strokeLinejoin="round"
-                                strokeLinecap="round"
-                            >
-                                {shape.properties!.name}
-                            </text>
-                            <text
-                                x={x}
-                                y={y}
-                                style={{
-                                    fontSize: fontSizes[k],
-                                    textAnchor: 'middle',
-                                    fontFamily: 'OpenSans',
-                                    transformOrigin: `${x}px ${y}px`,
-                                }}
-                                transform={`rotate(${(theta / Math.PI) * 180})`}
-                                fill="black"
-                            >
-                                {shape.properties!.name}
-                            </text>
+                            />
                         </g>
                     );
                 }),

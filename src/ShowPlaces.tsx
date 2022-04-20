@@ -2,12 +2,15 @@ import * as React from 'react';
 import { Feature, Position, Point } from 'geojson';
 import { useLocalStorage, empty, Pos, toStl } from './run';
 import { useDrag } from './useDrag';
+import { RenderText } from './ShowNames';
 
 export const ShowPlaces = ({
     places,
     scalePos,
+    font,
     selp,
 }: {
+    font: opentype.Font;
     selp: string | null;
     scalePos: (pos: Position) => Position;
     places: { [key: string]: Array<Feature<Point>> };
@@ -66,7 +69,15 @@ export const ShowPlaces = ({
                                     transform: tx,
                                 }}
                             >
-                                <text
+                                <RenderText
+                                    text={place.properties!.name}
+                                    x={x}
+                                    y={y}
+                                    transform=""
+                                    fontSize={6}
+                                    font={font}
+                                />
+                                {/* <text
                                     x={x}
                                     y={y}
                                     style={{
@@ -95,7 +106,7 @@ export const ShowPlaces = ({
                                     fill="black"
                                 >
                                     {place.properties!.name}
-                                </text>
+                                </text> */}
                             </g>
                         );
                     }),

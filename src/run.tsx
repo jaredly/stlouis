@@ -12,6 +12,7 @@ import {
 import proj4 from 'proj4';
 import { ShowNames } from './ShowNames';
 import { ShowPlaces } from './ShowPlaces';
+import opentype from 'opentype.js';
 // import PathKitInit from 'pathkit-wasm';
 
 const stlProj =
@@ -112,27 +113,39 @@ const App = ({
     types,
     boundary,
     places,
-    fontUrl,
+    font,
+    headerFont,
 }: {
     types: { [key: string]: Array<Feature<LineString>> };
     boundary: FeatureCollection;
     places: { [key: string]: Array<Feature<Point>> };
-    fontUrl: string;
+    font: opentype.Font;
+    headerFont: opentype.Font;
 }) => {
-    const [scale, setScale] = React.useState({ dx: 0, dy: 0, x: 1, y: 1 });
-    const [moving, setMoving] = React.useState();
-    const [selected, setSelected] = React.useState(null as null | string);
+    // const [scale, setScale] = React.useState({ dx: 0, dy: 0, x: 1, y: 1 });
+    // const [moving, setMoving] = React.useState();
+    // const [selected, setSelected] = React.useState(null as null | string);
     const [selp, setSelp] = React.useState(null as null | string);
     const [pos, setPos] = React.useState(null as null | Pos);
+    const [mini, setMini] = React.useState(false);
     const bounds = React.useMemo(() => {
+        const size = 3000;
+        if (mini && pos) {
+            return {
+                x0: pos.x - size,
+                y0: pos.y - size,
+                x1: pos.x + size,
+                y1: pos.y + size,
+            };
+        }
         let [x0, y0, x1, y1] = boundary.bbox!;
         y1 = 1047986.8701159965;
         y0 = 989536.881186489;
         x1 = 911486.1515920038;
         return { x0, y0, x1, y1 };
-    }, [boundary.bbox]);
+    }, [boundary.bbox, mini ? pos : null]);
 
-    const w = 650;
+    const w = mini && pos ? 100 : 600;
     const dx = bounds.x1 - bounds.x0;
     const dy = bounds.y1 - bounds.y0;
     const h = (dy / dx) * w;
@@ -161,9 +174,20 @@ const App = ({
 
     const [url, setUrl] = React.useState(null as null | string);
 
+    const rotate = false;
+
+    const posShow = pos ? scalePos([pos.x, pos.y]) : null;
+
     return (
         <div>
             <div style={{ padding: 24, outline: '1px solid magenta' }}>
+                <button
+                    onClick={() => {
+                        setMini(!mini);
+                    }}
+                >
+                    {mini ? 'Mini' : 'Full'}
+                </button>
                 <div>
                     {url ? (
                         <a
@@ -188,17 +212,22 @@ const App = ({
                             Download
                         </button>
                     )}
+                    <div>
+                        {pos ? `${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}` : ''}
+                    </div>
                 </div>
                 <svg
-                    width={(h + 20) / 3 + 'mm'}
-                    height={(w + 20) / 3 + 'mm'}
-                    viewBox={`${-10} ${-10} ${h + 20} ${w + 20}`}
+                    width={((rotate ? h : w) + 20) / 3 + 'mm'}
+                    height={((rotate ? w : h) + 20) / 3 + 'mm'}
+                    viewBox={`${-10} ${-10} ${(rotate ? h : w) + 20} ${
+                        (rotate ? w : h) + 20
+                    }`}
                     xmlns={'http://www.w3.org/2000/svg'}
                     ref={(n) => {
                         ref.current = n;
                     }}
                     onClick={(evt) => {
-                        const b = evt.currentTarget.getBoundingClientRect();
+                        const b = ref.current!.getBoundingClientRect();
                         setPos(
                             backPos({
                                 x: evt.clientX - b.left,
@@ -210,43 +239,21 @@ const App = ({
                     <clipPath id="rect-clip">
                         <rect x={0} y={0} width={w} height={h} />
                     </clipPath>
-                    <defs>
-                        <style
-                            dangerouslySetInnerHTML={{
-                                __html: `
-						@font-face {
-							font-family: 'OpenSans';
-							src: url('data:font/ttf;${fontUrl}');
-							font-style: normal;
-						}
-					`,
-                            }}
-                        />
-                    </defs>
                     <rect
                         x={-10}
                         y={-10}
-                        width={h + 20}
-                        height={w + 20}
+                        width={(rotate ? h : w) + 20}
+                        height={(rotate ? w : h) + 20}
                         fill="none"
                         stroke="red"
                         strokeWidth={1}
                     />
                     <g
                         clipPath="url(#rect-clip)"
-                        transform={`rotate(-90) translate(${-w} 0)`}
+                        transform={
+                            rotate ? `rotate(-90) translate(${-w} 0)` : ''
+                        }
                     >
-                        {/* {boundary.features.map((shape, i) => (
-                        <polygon
-                            fill="none"
-                            key={i}
-                            stroke={'red'}
-                            strokeWidth={1}
-                            points={(shape.geometry as Polygon).coordinates[0]
-                                .map(showPos)
-                                .join(' ')}
-                        />
-                    ))} */}
                         <g>
                             {t.map((k, ti) =>
                                 types[k].map((shape, i) => (
@@ -269,6 +276,7 @@ const App = ({
                         </g>
                         <g>
                             <ShowNames
+                                font={font}
                                 types={types}
                                 scalePos={scalePos}
                                 centers={centers}
@@ -276,15 +284,23 @@ const App = ({
                         </g>
                         <g>
                             <ShowPlaces
-                                places={places}
+                                font={headerFont}
                                 selp={selp}
+                                places={places}
                                 scalePos={scalePos}
                             />
                         </g>
+                        {posShow && !mini ? (
+                            <circle
+                                cx={posShow[0]}
+                                cy={posShow[1]}
+                                r={5}
+                                fill="red"
+                            />
+                        ) : null}
                     </g>
                 </svg>
             </div>
-            <div>{JSON.stringify(pos)}</div>
         </div>
     );
 };
@@ -322,28 +338,19 @@ const getShp = (name: string) => {
 };
 
 const run = async () => {
-    const [roads, fontUrl, boundary, places] = await Promise.all([
+    const [roads, font, headerFont, boundary, places] = await Promise.all([
         fetch('./roads.json').then(
             (r): Promise<{ [key: string]: Array<Feature<LineString>> }> =>
                 r.json(),
         ),
-        fetch(
-            '/data/Open_Sans/static/OpenSans_Condensed/OpenSans_Condensed-Light.ttf',
-        )
-            .then((r) => r.blob())
-            .then((b): Promise<string> => {
-                return new Promise((res) => {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(b);
-                    reader.onloadend = () => res(reader.result as string);
-                });
-            }),
+        opentype.load(
+            '/data/Open_Sans/static/OpenSans_Condensed/OpenSans_Condensed-Regular.ttf',
+        ),
+        opentype.load(
+            '/data/Open_Sans/static/OpenSans_Condensed/OpenSans_Condensed-Bold.ttf',
+        ),
         getShp('./data/stl_boundary/stl_boundary'),
         getShp('./data/places'),
-        // PathKitInit({
-        //     locateFile: (file: string) =>
-        //         '/node_modules/pathkit-wasm/bin/' + file,
-        // }),
     ]);
 
     const placeTypes: { [key: string]: Array<Feature<Point>> } = {};
@@ -358,13 +365,13 @@ const run = async () => {
     delete placeTypes['island'];
     delete placeTypes['locality'];
 
-    console.log(placeTypes);
     root.render(
         <App
             types={roads}
             boundary={boundary}
             places={placeTypes}
-            fontUrl={fontUrl}
+            font={font}
+            headerFont={headerFont}
         />,
     );
 };
