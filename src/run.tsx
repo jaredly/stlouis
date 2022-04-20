@@ -20,6 +20,12 @@ const roadsPrj =
 const toStl = proj4(roadsPrj, stlProj);
 const fromStl = proj4(stlProj, roadsPrj);
 
+const dist = (a: Pos, b: Pos) => {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+};
+
 // const toShow = [
 //     'residential',
 //     'primary',
@@ -72,6 +78,28 @@ const skip = [
     'path',
 ];
 
+export type Centers = {
+    [name: string]: {
+        center: {
+            x: number;
+            y: number;
+        };
+        closest: [number, Feature<LineString>, Pos, Position, Position];
+    };
+};
+
+const averagePoint = (pos: Position[]): Pos => {
+    let cx = 0;
+    let cy = 0;
+    pos.forEach(([x, y]) => {
+        cx += x;
+        cy += y;
+    });
+    return { x: cx / pos.length, y: cy / pos.length };
+};
+
+const labeled = ['trunk', 'motorway', 'primary'];
+
 const App = ({
     types,
     boundary,
@@ -116,6 +144,60 @@ const App = ({
     const t = Object.keys(types)
         .sort((a, b) => (sizes[b] || 0) - (sizes[a] || 0))
         .filter((t) => !skip.includes(t));
+
+    const centers = React.useMemo(() => {
+        const centers: Centers = {};
+        labeled.forEach((key) => {
+            const byName: { [key: string]: Array<Feature<LineString>> } = {};
+            types[key].forEach((feature) => {
+                const name = feature.properties!.name;
+                if (!byName[name]) {
+                    byName[name] = [feature];
+                } else {
+                    byName[name].push(feature);
+                }
+            });
+            Object.keys(byName).forEach((name) => {
+                let n = 0;
+                let px = 0;
+                let py = 0;
+                byName[name].forEach((feature) => {
+                    feature.geometry.coordinates.forEach(([x, y]) => {
+                        n++;
+                        px += x;
+                        py += y;
+                    });
+                });
+                px /= n;
+                py /= n;
+                const center = { x: px, y: py };
+                let closest = null as
+                    | null
+                    | [number, Feature<LineString>, Pos, Position, Position];
+                byName[name].forEach((feature) => {
+                    if (feature.geometry.coordinates.length < 2) {
+                        return;
+                    }
+                    const midx = Math.floor(
+                        (feature.geometry.coordinates.length - 1) / 2,
+                    );
+                    const p1 = feature.geometry.coordinates[midx];
+                    const p2 = feature.geometry.coordinates[midx + 1];
+                    const mid = {
+                        x: (p1[0] + p2[0]) / 2,
+                        y: (p1[1] + p2[1]) / 2,
+                    };
+                    // const theta = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
+                    const d = dist(center, mid);
+                    if (closest === null || d < closest[0]) {
+                        closest = [d, feature, mid, p1, p2];
+                    }
+                });
+                centers[key + ':' + name] = { center, closest: closest! };
+            });
+        });
+        return centers;
+    }, [types]);
 
     return (
         <div>
@@ -188,71 +270,180 @@ const App = ({
                             .join(' ')}
                     />
                 ))}
-                {t.map((k, ti) =>
-                    types[k].map((shape, i) => (
-                        <polyline
-                            fill="none"
-                            key={ti + ':' + i}
-                            stroke={getColor(k)}
-                            strokeWidth={sizes[k] || 0.5}
-                            strokeLinecap="round"
-                            points={(shape.geometry as LineString).coordinates
-                                .map(toStl.forward)
-                                .map(showPos)
-                                .join(' ')}
-                        />
-                    )),
-                )}
-                <ShowNames types={types} scalePos={scalePos} />
-                <ShowPlaces places={places} selp={selp} scalePos={scalePos} />
+                <g>
+                    {t.map((k, ti) =>
+                        types[k].map((shape, i) => (
+                            <polyline
+                                fill="none"
+                                key={ti + ':' + i}
+                                stroke={getColor(k)}
+                                strokeWidth={sizes[k] || 0.5}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                points={(
+                                    shape.geometry as LineString
+                                ).coordinates
+                                    .map(toStl.forward)
+                                    .map(showPos)
+                                    .join(' ')}
+                            />
+                        )),
+                    )}
+                </g>
+                <g>
+                    <ShowNames
+                        types={types}
+                        scalePos={scalePos}
+                        centers={centers}
+                    />
+                </g>
+                <g>
+                    <ShowPlaces
+                        places={places}
+                        selp={selp}
+                        scalePos={scalePos}
+                    />
+                </g>
             </svg>
             <div>{JSON.stringify(pos)}</div>
         </div>
     );
 };
 
+const useLocalStorage = <T,>(
+    key: string,
+    initial: T,
+): [T, (m: T | ((v: T) => T)) => void] => {
+    const [value, setValue] = React.useState(() => {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+            return JSON.parse(raw);
+        }
+        return initial;
+    });
+    React.useEffect(() => {
+        if (value !== initial) {
+            localStorage.setItem(key, JSON.stringify(value));
+        }
+    }, [value]);
+    return [value, setValue];
+};
+
+const empty = {};
+
 const ShowNames = ({
     types,
     scalePos,
+    centers,
 }: {
+    centers: Centers;
     scalePos: (pos: Position) => Position;
     types: {
         [key: string]: Array<Feature<LineString>>;
     };
 }) => {
-    const used: { [key: string]: true } = {};
+    const [offsets, setOffsets] = useLocalStorage(
+        'names',
+        empty as { [key: string]: null | Pos },
+    );
+    const [moving, setMoving] = React.useState(
+        null as null | { pos: Pos; idx: number; origin: Pos },
+    );
+    React.useEffect(() => {
+        if (!moving) return;
+        const fn = (evt: MouseEvent) => {
+            setMoving((m) =>
+                m ? { ...m, pos: { x: evt.clientX, y: evt.clientY } } : m,
+            );
+        };
+        document.addEventListener('mousemove', fn);
+        const up = () => {
+            setMoving((moving) => {
+                if (moving) {
+                    setOffsets((off) => {
+                        const r = { ...off };
+                        r[moving.idx] = {
+                            x: moving.pos.x - moving.origin.x,
+                            y: moving.pos.y - moving.origin.y,
+                        };
+                        return r;
+                    });
+                }
+                return null;
+            });
+        };
+        document.addEventListener('mouseup', up);
+
+        return () => {
+            document.removeEventListener('mousemove', fn);
+            document.removeEventListener('mouseup', up);
+        };
+    }, [!!moving]);
+
+    let tix = 0;
     return (
         <>
-            {['trunk', 'motorway', 'primary'].map((k, ti) =>
+            {labeled.map((k, ti) =>
                 types[k].map((shape, i) => {
-                    // if (used[shape.properties!.name]) {
-                    //     return null;
-                    // }
-                    used[shape.properties!.name] = true;
+                    const key = `${k}:${shape.properties!.name}`;
+                    if (shape !== centers[key].closest[1]) {
+                        return;
+                    }
+                    let [_, __, center, p1, p2] = centers[key].closest;
+                    const id = tix++;
                     const idx = Math.floor(
                         shape.geometry.coordinates.length / 2,
                     );
                     const [x, y] = scalePos(
-                        toStl.forward(shape.geometry.coordinates[idx]),
+                        toStl.forward([center.x, center.y]),
                     );
-                    const p2 =
-                        shape.geometry.coordinates.length > idx + 1
-                            ? scalePos(
-                                  toStl.forward(
-                                      shape.geometry.coordinates[idx + 1],
-                                  ),
-                              )
-                            : null;
-                    let theta = p2 ? Math.atan2(p2[1] - y, p2[0] - x) : 0;
+
+                    p1 = scalePos(toStl.forward(p1));
+                    p2 = scalePos(toStl.forward(p2));
+                    let theta = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
+                    // const [x, y] = scalePos(
+                    //     toStl.forward(shape.geometry.coordinates[idx]),
+                    // );
+                    // const p2 =
+                    //     shape.geometry.coordinates.length > idx + 1
+                    //         ? scalePos(
+                    //               toStl.forward(
+                    //                   shape.geometry.coordinates[idx + 1],
+                    //               ),
+                    //           )
+                    //         : null;
+                    // let theta = p2 ? Math.atan2(p2[1] - y, p2[0] - x) : 0;
+                    // theta *= -1;
                     if (theta > Math.PI / 2) {
                         theta -= Math.PI;
                     }
                     if (theta < -Math.PI / 2) {
                         theta += Math.PI;
                     }
-                    console.log(theta);
+                    const tx =
+                        moving?.idx === id
+                            ? `translate(${
+                                  (moving.pos.x - moving.origin.x) / 5
+                              }mm, ${(moving.pos.y - moving.origin.y) / 5}mm)`
+                            : offsets[id]
+                            ? `translate(${offsets[id]!.x / 5}mm, ${
+                                  offsets[id]!.y / 5
+                              }mm)`
+                            : undefined;
                     return (
-                        <React.Fragment key={i}>
+                        <g
+                            key={i}
+                            onMouseDown={(evt) => {
+                                const pos = { x: evt.clientX, y: evt.clientY };
+                                setMoving({ origin: pos, pos, idx: id });
+                                console.log('yes', id);
+                            }}
+                            style={{
+                                cursor: 'pointer',
+                                userSelect: 'none',
+                                transform: tx,
+                            }}
+                        >
                             <text
                                 x={x}
                                 y={y}
@@ -265,10 +456,6 @@ const ShowNames = ({
                                         (theta / Math.PI) * 180
                                     }deg)`,
                                 }}
-                                // transform={`rotate(${
-                                //     (theta / Math.PI) * 180
-                                // }deg)`}
-                                // transform={`rotate(45deg)`}
                                 stroke="white"
                                 fill="black"
                                 strokeWidth={2}
@@ -285,17 +472,15 @@ const ShowNames = ({
                                     textAnchor: 'middle',
                                     fontFamily: 'OpenSans',
                                     transformOrigin: `${x}px ${y}px`,
-                                    // transform: `rotate(45deg)`,
                                     transform: `rotate(${
                                         (theta / Math.PI) * 180
                                     }deg)`,
                                 }}
-                                transform={`rotate(45deg)`}
                                 fill="black"
                             >
                                 {shape.properties!.name}
                             </text>
-                        </React.Fragment>
+                        </g>
                     );
                 }),
             )}
@@ -332,7 +517,7 @@ const ShowPlaces = ({
                                         fontFamily: 'OpenSans',
                                     }}
                                     stroke="white"
-                                    fill="black"
+                                    fill="white"
                                     fontWeight={'bold'}
                                     strokeWidth={3}
                                     strokeLinejoin="round"
