@@ -10,6 +10,7 @@ import {
     Point,
 } from 'geojson';
 import proj4 from 'proj4';
+import PathKitInit from 'pathkit-wasm';
 
 const stlProj =
     'PROJCS["NAD_1983_StatePlane_Missouri_East_FIPS_2401_Feet",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",820208.3333333333],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-90.5],PARAMETER["Scale_Factor",0.9999333333333333],PARAMETER["Latitude_Of_Origin",35.83333333333334],UNIT["Foot_US",0.3048006096012192]]';
@@ -28,14 +29,7 @@ const fromStl = proj4(stlProj, roadsPrj);
 //     'trunk',
 // ];
 
-// const colors =
-//     'red orange green blue purple magenta teal gray black cyan pink #faf #faa'.split(
-//         ' ',
-//     );
-
 type Pos = { x: number; y: number };
-
-const roadScale = 0;
 
 const sizes: { [key: string]: number } = {
     trunk: 6,
@@ -47,13 +41,26 @@ const sizes: { [key: string]: number } = {
 };
 
 const colors: { [key: string]: string } = {
+    // trunk: 'red',
+    // motorway: 'red',
+    // primary: '#f55',
+    // secondary: '#faa',
+    // tertiary: '#faa',
+    // residential: '#fcc',
+
     trunk: 'red',
-    motorway: 'red',
-    primary: '#f55',
-    secondary: '#faa',
-    tertiary: '#faa',
-    residential: '#fcc',
+    motorway: 'green',
+    primary: 'blue',
+    secondary: 'orange',
+    tertiary: 'teal',
+    residential: 'black',
+
+    others: 'magenta',
 };
+
+const getColor = (type: string) =>
+    // colors[k] || colors.others
+    '#3a3';
 
 const skip = [
     'service',
@@ -71,9 +78,9 @@ const App = ({
     places,
     fontUrl,
 }: {
-    types: { [key: string]: Array<Feature> };
+    types: { [key: string]: Array<Feature<LineString>> };
     boundary: FeatureCollection;
-    places: { [key: string]: Array<Feature> };
+    places: { [key: string]: Array<Feature<Point>> };
     fontUrl: string;
 }) => {
     const [scale, setScale] = React.useState({ dx: 0, dy: 0, x: 1, y: 1 });
@@ -107,7 +114,7 @@ const App = ({
         `${((x - bounds.x0) / dx) * w},${(1 - (y - bounds.y0) / dy) * h}`;
 
     const t = Object.keys(types)
-        .sort((a, b) => (sizes[a] || 0) - (sizes[b] || 0))
+        .sort((a, b) => (sizes[b] || 0) - (sizes[a] || 0))
         .filter((t) => !skip.includes(t));
 
     return (
@@ -170,62 +177,6 @@ const App = ({
                         }}
                     />
                 </defs>
-                {t.map((k, ti) =>
-                    types[k].map((shape, i) => (
-                        <polyline
-                            fill="none"
-                            key={ti + ':' + i}
-                            stroke={colors[k] || '#fcc'}
-                            strokeWidth={sizes[k] || 0.5}
-                            strokeLinecap="round"
-                            points={(shape.geometry as LineString).coordinates
-                                .map(toStl.forward)
-                                .map(showPos)
-                                .join(' ')}
-                        />
-                    )),
-                )}
-                {['trunk', 'motorway', 'primary'].map((k, ti) =>
-                    types[k].map((shape, i) => {
-                        const [x, y] = scalePos(
-                            toStl.forward(
-                                (shape.geometry as LineString).coordinates[0],
-                            ),
-                        );
-                        return (
-                            <React.Fragment key={i}>
-                                <text
-                                    x={x}
-                                    y={y}
-                                    style={{
-                                        fontSize: 4,
-                                        textAnchor: 'middle',
-                                        fontFamily: 'OpenSans',
-                                    }}
-                                    stroke="white"
-                                    fill="black"
-                                    strokeWidth={2}
-                                    strokeLinejoin="round"
-                                    strokeLinecap="round"
-                                >
-                                    {shape.properties!.name}
-                                </text>
-                                <text
-                                    x={x}
-                                    y={y}
-                                    style={{
-                                        fontSize: 4,
-                                        textAnchor: 'middle',
-                                        fontFamily: 'OpenSans',
-                                    }}
-                                    fill="black"
-                                >
-                                    {shape.properties!.name}
-                                </text>
-                            </React.Fragment>
-                        );
-                    }),
-                )}
                 {boundary.features.map((shape, i) => (
                     <polygon
                         fill="none"
@@ -237,52 +188,176 @@ const App = ({
                             .join(' ')}
                     />
                 ))}
-                {Object.keys(places).map(
-                    (p, pi) =>
-                        (!selp || selp === p) &&
-                        places[p].map((place, i) => {
-                            const [x, y] = scalePos(
-                                toStl.forward(
-                                    (place.geometry as Point).coordinates,
-                                ),
-                            );
-                            return (
-                                <React.Fragment key={pi + ':' + i}>
-                                    <text
-                                        x={x}
-                                        y={y}
-                                        style={{
-                                            fontSize: 6,
-                                            textAnchor: 'middle',
-                                            fontFamily: 'OpenSans',
-                                        }}
-                                        stroke="white"
-                                        fill="black"
-                                        strokeWidth={3}
-                                        strokeLinejoin="round"
-                                        strokeLinecap="round"
-                                    >
-                                        {place.properties!.name}
-                                    </text>
-                                    <text
-                                        x={x}
-                                        y={y}
-                                        style={{
-                                            fontSize: 6,
-                                            textAnchor: 'middle',
-                                            fontFamily: 'OpenSans',
-                                        }}
-                                        fill="black"
-                                    >
-                                        {place.properties!.name}
-                                    </text>
-                                </React.Fragment>
-                            );
-                        }),
+                {t.map((k, ti) =>
+                    types[k].map((shape, i) => (
+                        <polyline
+                            fill="none"
+                            key={ti + ':' + i}
+                            stroke={getColor(k)}
+                            strokeWidth={sizes[k] || 0.5}
+                            strokeLinecap="round"
+                            points={(shape.geometry as LineString).coordinates
+                                .map(toStl.forward)
+                                .map(showPos)
+                                .join(' ')}
+                        />
+                    )),
                 )}
+                <ShowNames types={types} scalePos={scalePos} />
+                <ShowPlaces places={places} selp={selp} scalePos={scalePos} />
             </svg>
             <div>{JSON.stringify(pos)}</div>
         </div>
+    );
+};
+
+const ShowNames = ({
+    types,
+    scalePos,
+}: {
+    scalePos: (pos: Position) => Position;
+    types: {
+        [key: string]: Array<Feature<LineString>>;
+    };
+}) => {
+    const used: { [key: string]: true } = {};
+    return (
+        <>
+            {['trunk', 'motorway', 'primary'].map((k, ti) =>
+                types[k].map((shape, i) => {
+                    // if (used[shape.properties!.name]) {
+                    //     return null;
+                    // }
+                    used[shape.properties!.name] = true;
+                    const idx = Math.floor(
+                        shape.geometry.coordinates.length / 2,
+                    );
+                    const [x, y] = scalePos(
+                        toStl.forward(shape.geometry.coordinates[idx]),
+                    );
+                    const p2 =
+                        shape.geometry.coordinates.length > idx + 1
+                            ? scalePos(
+                                  toStl.forward(
+                                      shape.geometry.coordinates[idx + 1],
+                                  ),
+                              )
+                            : null;
+                    let theta = p2 ? Math.atan2(p2[1] - y, p2[0] - x) : 0;
+                    if (theta > Math.PI / 2) {
+                        theta -= Math.PI;
+                    }
+                    if (theta < -Math.PI / 2) {
+                        theta += Math.PI;
+                    }
+                    console.log(theta);
+                    return (
+                        <React.Fragment key={i}>
+                            <text
+                                x={x}
+                                y={y}
+                                style={{
+                                    fontSize: 4,
+                                    textAnchor: 'middle',
+                                    fontFamily: 'OpenSans',
+                                    transformOrigin: `${x}px ${y}px`,
+                                    transform: `rotate(${
+                                        (theta / Math.PI) * 180
+                                    }deg)`,
+                                }}
+                                // transform={`rotate(${
+                                //     (theta / Math.PI) * 180
+                                // }deg)`}
+                                // transform={`rotate(45deg)`}
+                                stroke="white"
+                                fill="black"
+                                strokeWidth={2}
+                                strokeLinejoin="round"
+                                strokeLinecap="round"
+                            >
+                                {shape.properties!.name}
+                            </text>
+                            <text
+                                x={x}
+                                y={y}
+                                style={{
+                                    fontSize: 4,
+                                    textAnchor: 'middle',
+                                    fontFamily: 'OpenSans',
+                                    transformOrigin: `${x}px ${y}px`,
+                                    // transform: `rotate(45deg)`,
+                                    transform: `rotate(${
+                                        (theta / Math.PI) * 180
+                                    }deg)`,
+                                }}
+                                transform={`rotate(45deg)`}
+                                fill="black"
+                            >
+                                {shape.properties!.name}
+                            </text>
+                        </React.Fragment>
+                    );
+                }),
+            )}
+        </>
+    );
+};
+
+const ShowPlaces = ({
+    places,
+    scalePos,
+    selp,
+}: {
+    selp: string | null;
+    scalePos: (pos: Position) => Position;
+    places: { [key: string]: Array<Feature<Point>> };
+}) => {
+    return (
+        <>
+            {Object.keys(places).map(
+                (p, pi) =>
+                    (!selp || selp === p) &&
+                    places[p].map((place, i) => {
+                        const [x, y] = scalePos(
+                            toStl.forward(place.geometry.coordinates),
+                        );
+                        return (
+                            <React.Fragment key={pi + ':' + i}>
+                                <text
+                                    x={x}
+                                    y={y}
+                                    style={{
+                                        fontSize: 6,
+                                        textAnchor: 'middle',
+                                        fontFamily: 'OpenSans',
+                                    }}
+                                    stroke="white"
+                                    fill="black"
+                                    fontWeight={'bold'}
+                                    strokeWidth={3}
+                                    strokeLinejoin="round"
+                                    strokeLinecap="round"
+                                >
+                                    {place.properties!.name}
+                                </text>
+                                <text
+                                    x={x}
+                                    y={y}
+                                    fontWeight={'bold'}
+                                    style={{
+                                        fontSize: 6,
+                                        textAnchor: 'middle',
+                                        fontFamily: 'OpenSans',
+                                    }}
+                                    fill="black"
+                                >
+                                    {place.properties!.name}
+                                </text>
+                            </React.Fragment>
+                        );
+                    }),
+            )}
+        </>
     );
 };
 
@@ -316,13 +391,18 @@ const run = async () => {
             }),
         getShp('./data/stl_boundary/stl_boundary'),
         getShp('./data/places'),
+        // PathKitInit({
+        //     locateFile: (file: string) =>
+        //         '/node_modules/pathkit-wasm/bin/' + file,
+        // }),
     ]);
-    console.log('places', places);
 
-    const placeTypes: { [key: string]: Array<Feature> } = {};
+    const placeTypes: { [key: string]: Array<Feature<Point>> } = {};
     places.features.forEach((p) => {
         const type = p.properties!.type;
-        placeTypes[type] = (placeTypes[type] || []).concat([p]);
+        placeTypes[type] = (placeTypes[type] || []).concat([
+            p as Feature<Point>,
+        ]);
     });
     delete placeTypes['yes'];
     delete placeTypes['city'];
@@ -342,27 +422,32 @@ const run = async () => {
 
 run().catch(console.error);
 
-function findBoundsFromRoads(types: { [key: string]: Array<Feature> }): {
-    x0: number;
-    y0: number;
-    y1: number;
-    x1: number;
-} {
-    return Object.keys(types).reduce(
-        (bounds, k) =>
-            types[k].reduce(
-                (bounds, shape) =>
-                    (shape.geometry as LineString).coordinates.reduce(
-                        (bounds, [x, y]) => ({
-                            x0: Math.min(x, bounds.x0),
-                            y0: Math.min(y, bounds.y0),
-                            x1: Math.max(x, bounds.x1),
-                            y1: Math.max(y, bounds.y1),
-                        }),
-                        bounds,
-                    ),
-                bounds,
-            ),
-        { x0: Infinity, y0: Infinity, y1: -Infinity, x1: -Infinity },
-    );
-}
+// @ts-ignore
+// const ctx = (window.canvas as HTMLCanvasElement).getContext('2d')!;
+// ctx.canvas.style.display = 'block';
+// const size = 500;
+// ctx.canvas.width = size;
+// ctx.canvas.height = size;
+// ctx.canvas.style.width = size / 2 + 'px';
+// ctx.canvas.style.height = size / 2 + 'px';
+
+// PathKitInit({
+//     locateFile: (file: string) => '/node_modules/pathkit-wasm/bin/' + file,
+// }).then((PathKit) => {
+//     // @ts-ignore
+//     window.pk = PathKit;
+//     console.log('yaya');
+//     const orid = PathKit.NewPath()
+//         .moveTo(10, 10)
+//         .lineTo(30, 30)
+//         .lineTo(40, 10)
+//         .close();
+
+//     const p = orid.copy().stroke({ width: 10, join: PathKit.StrokeJoin.ROUND });
+//     const smalled = orid
+//         .copy()
+//         .stroke({ width: 5, join: PathKit.StrokeJoin.ROUND });
+//     const oped = p.copy().op(smalled, PathKit.PathOp.DIFFERENCE);
+//     ctx.fillStyle = 'orange';
+//     ctx.fill(oped.toPath2D(), oped.getFillTypeString());
+// });
