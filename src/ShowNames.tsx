@@ -95,10 +95,8 @@ export const ShowNames = ({
                                     textAnchor: 'middle',
                                     fontFamily: 'OpenSans',
                                     transformOrigin: `${x}px ${y}px`,
-                                    transform: `rotate(${
-                                        (theta / Math.PI) * 180
-                                    }deg)`,
                                 }}
+                                transform={`rotate(${(theta / Math.PI) * 180})`}
                                 stroke="white"
                                 fill="black"
                                 strokeWidth={2}
@@ -115,10 +113,8 @@ export const ShowNames = ({
                                     textAnchor: 'middle',
                                     fontFamily: 'OpenSans',
                                     transformOrigin: `${x}px ${y}px`,
-                                    transform: `rotate(${
-                                        (theta / Math.PI) * 180
-                                    }deg)`,
                                 }}
+                                transform={`rotate(${(theta / Math.PI) * 180})`}
                                 fill="black"
                             >
                                 {shape.properties!.name}

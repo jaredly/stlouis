@@ -157,43 +157,46 @@ const App = ({
         return calculateCenters(types);
     }, [types]);
 
+    const ref = React.useRef(null as null | SVGSVGElement);
+
+    const [url, setUrl] = React.useState(null as null | string);
+
     return (
         <div>
-            Hmm
-            <div>
-                {Object.keys(places).map((p) => (
-                    <button
-                        key={p}
-                        onClick={() => setSelp(selp === p ? null : p)}
-                    >
-                        {p} {places[p].length}
-                    </button>
-                ))}
-            </div>
-            <div style={{ display: 'flex' }}>
-                {t.map((t, ti) => (
-                    <div key={t}>
-                        <div
-                            style={{
-                                width: 15,
-                                height: 15,
-                                display: 'inline-block',
-                                border: selected === t ? '1px solid white' : '',
-                            }}
-                            onClick={() =>
-                                setSelected(selected === t ? null : t)
-                            }
-                        />
-                        {t} ({types[t].length})
-                    </div>
-                ))}
-            </div>
             <div style={{ padding: 24, outline: '1px solid magenta' }}>
+                <div>
+                    {url ? (
+                        <a
+                            href={url}
+                            download="map.svg"
+                            onClick={() => {
+                                setTimeout(() => setUrl(null), 50);
+                            }}
+                        >
+                            Download map.svg
+                        </a>
+                    ) : (
+                        <button
+                            onClick={() => {
+                                let contents = ref.current!.outerHTML;
+                                const blob = new Blob([contents], {
+                                    type: 'image/svg+xml',
+                                });
+                                setUrl(URL.createObjectURL(blob));
+                            }}
+                        >
+                            Download
+                        </button>
+                    )}
+                </div>
                 <svg
-                    width={(w + 20) / 3 + 'mm'}
-                    height={(h + 20) / 3 + 'mm'}
-                    viewBox={`${-10} ${-10} ${w + 20} ${h + 20}`}
+                    width={(h + 20) / 3 + 'mm'}
+                    height={(w + 20) / 3 + 'mm'}
+                    viewBox={`${-10} ${-10} ${h + 20} ${w + 20}`}
                     xmlns={'http://www.w3.org/2000/svg'}
+                    ref={(n) => {
+                        ref.current = n;
+                    }}
                     onClick={(evt) => {
                         const b = evt.currentTarget.getBoundingClientRect();
                         setPos(
@@ -223,14 +226,15 @@ const App = ({
                     <rect
                         x={-10}
                         y={-10}
-                        width={w + 20}
-                        height={h + 20}
+                        width={h + 20}
+                        height={w + 20}
                         fill="none"
                         stroke="red"
                         strokeWidth={1}
                     />
                     <g
-                    // clipPath="url(#rect-clip)"
+                        clipPath="url(#rect-clip)"
+                        transform={`rotate(-90) translate(${-w} 0)`}
                     >
                         {/* {boundary.features.map((shape, i) => (
                         <polygon
@@ -421,32 +425,3 @@ function calculateCenters(types: {
     });
     return centers;
 }
-// @ts-ignore
-// const ctx = (window.canvas as HTMLCanvasElement).getContext('2d')!;
-// ctx.canvas.style.display = 'block';
-// const size = 500;
-// ctx.canvas.width = size;
-// ctx.canvas.height = size;
-// ctx.canvas.style.width = size / 2 + 'px';
-// ctx.canvas.style.height = size / 2 + 'px';
-
-// PathKitInit({
-//     locateFile: (file: string) => '/node_modules/pathkit-wasm/bin/' + file,
-// }).then((PathKit) => {
-//     // @ts-ignore
-//     window.pk = PathKit;
-//     console.log('yaya');
-//     const orid = PathKit.NewPath()
-//         .moveTo(10, 10)
-//         .lineTo(30, 30)
-//         .lineTo(40, 10)
-//         .close();
-
-//     const p = orid.copy().stroke({ width: 10, join: PathKit.StrokeJoin.ROUND });
-//     const smalled = orid
-//         .copy()
-//         .stroke({ width: 5, join: PathKit.StrokeJoin.ROUND });
-//     const oped = p.copy().op(smalled, PathKit.PathOp.DIFFERENCE);
-//     ctx.fillStyle = 'orange';
-//     ctx.fill(oped.toPath2D(), oped.getFillTypeString());
-// });
