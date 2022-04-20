@@ -46,6 +46,14 @@ const sizes: { [key: string]: number } = {
     residential: 0.5,
 };
 
+const fontSizes: { [key: string]: number } = {
+    trunk: 6,
+    motorway: 5,
+    primary: 4,
+    secondary: 3,
+};
+const labeled = ['trunk', 'motorway', 'primary', 'secondary'];
+
 const colors: { [key: string]: string } = {
     // trunk: 'red',
     // motorway: 'red',
@@ -97,8 +105,6 @@ const averagePoint = (pos: Position[]): Pos => {
     });
     return { x: cx / pos.length, y: cy / pos.length };
 };
-
-const labeled = ['trunk', 'motorway', 'primary'];
 
 const App = ({
     types,
@@ -187,7 +193,6 @@ const App = ({
                         x: (p1[0] + p2[0]) / 2,
                         y: (p1[1] + p2[1]) / 2,
                     };
-                    // const theta = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
                     const d = dist(center, mid);
                     if (closest === null || d < closest[0]) {
                         closest = [d, feature, mid, p1, p2];
@@ -331,6 +336,38 @@ const useLocalStorage = <T,>(
 
 const empty = {};
 
+type MoveState = { pos: Pos; idx: number; origin: Pos };
+
+const useDrag = (
+    onDrop: (state: MoveState) => void,
+): [null | MoveState, (v: null | MoveState) => void] => {
+    const [moving, setMoving] = React.useState(null as null | MoveState);
+    React.useEffect(() => {
+        if (!moving) return;
+        const fn = (evt: MouseEvent) => {
+            setMoving((m) =>
+                m ? { ...m, pos: { x: evt.clientX, y: evt.clientY } } : m,
+            );
+        };
+        document.addEventListener('mousemove', fn);
+        const up = () => {
+            setMoving((moving) => {
+                if (moving) {
+                    onDrop(moving);
+                }
+                return null;
+            });
+        };
+        document.addEventListener('mouseup', up);
+
+        return () => {
+            document.removeEventListener('mousemove', fn);
+            document.removeEventListener('mouseup', up);
+        };
+    }, [!!moving]);
+    return [moving, setMoving];
+};
+
 const ShowNames = ({
     types,
     scalePos,
@@ -346,39 +383,16 @@ const ShowNames = ({
         'names',
         empty as { [key: string]: null | Pos },
     );
-    const [moving, setMoving] = React.useState(
-        null as null | { pos: Pos; idx: number; origin: Pos },
-    );
-    React.useEffect(() => {
-        if (!moving) return;
-        const fn = (evt: MouseEvent) => {
-            setMoving((m) =>
-                m ? { ...m, pos: { x: evt.clientX, y: evt.clientY } } : m,
-            );
-        };
-        document.addEventListener('mousemove', fn);
-        const up = () => {
-            setMoving((moving) => {
-                if (moving) {
-                    setOffsets((off) => {
-                        const r = { ...off };
-                        r[moving.idx] = {
-                            x: moving.pos.x - moving.origin.x,
-                            y: moving.pos.y - moving.origin.y,
-                        };
-                        return r;
-                    });
-                }
-                return null;
-            });
-        };
-        document.addEventListener('mouseup', up);
-
-        return () => {
-            document.removeEventListener('mousemove', fn);
-            document.removeEventListener('mouseup', up);
-        };
-    }, [!!moving]);
+    const [moving, setMoving] = useDrag((moving) => {
+        setOffsets((off) => {
+            const r = { ...off };
+            r[moving.idx] = {
+                x: moving.pos.x - moving.origin.x,
+                y: moving.pos.y - moving.origin.y,
+            };
+            return r;
+        });
+    });
 
     let tix = 0;
     return (
@@ -401,19 +415,6 @@ const ShowNames = ({
                     p1 = scalePos(toStl.forward(p1));
                     p2 = scalePos(toStl.forward(p2));
                     let theta = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
-                    // const [x, y] = scalePos(
-                    //     toStl.forward(shape.geometry.coordinates[idx]),
-                    // );
-                    // const p2 =
-                    //     shape.geometry.coordinates.length > idx + 1
-                    //         ? scalePos(
-                    //               toStl.forward(
-                    //                   shape.geometry.coordinates[idx + 1],
-                    //               ),
-                    //           )
-                    //         : null;
-                    // let theta = p2 ? Math.atan2(p2[1] - y, p2[0] - x) : 0;
-                    // theta *= -1;
                     if (theta > Math.PI / 2) {
                         theta -= Math.PI;
                     }
@@ -436,7 +437,6 @@ const ShowNames = ({
                             onMouseDown={(evt) => {
                                 const pos = { x: evt.clientX, y: evt.clientY };
                                 setMoving({ origin: pos, pos, idx: id });
-                                console.log('yes', id);
                             }}
                             style={{
                                 cursor: 'pointer',
@@ -448,7 +448,7 @@ const ShowNames = ({
                                 x={x}
                                 y={y}
                                 style={{
-                                    fontSize: 4,
+                                    fontSize: fontSizes[k],
                                     textAnchor: 'middle',
                                     fontFamily: 'OpenSans',
                                     transformOrigin: `${x}px ${y}px`,
@@ -468,7 +468,7 @@ const ShowNames = ({
                                 x={x}
                                 y={y}
                                 style={{
-                                    fontSize: 4,
+                                    fontSize: fontSizes[k],
                                     textAnchor: 'middle',
                                     fontFamily: 'OpenSans',
                                     transformOrigin: `${x}px ${y}px`,
@@ -497,17 +497,60 @@ const ShowPlaces = ({
     scalePos: (pos: Position) => Position;
     places: { [key: string]: Array<Feature<Point>> };
 }) => {
+    const [offsets, setOffsets] = useLocalStorage(
+        'places',
+        empty as { [key: string]: null | Pos },
+    );
+    const [moving, setMoving] = useDrag((moving) => {
+        setOffsets((off) => {
+            const r = { ...off };
+            r[moving.idx] = {
+                x: moving.pos.x - moving.origin.x,
+                y: moving.pos.y - moving.origin.y,
+            };
+            return r;
+        });
+    });
+
+    let tix = 0;
     return (
         <>
             {Object.keys(places).map(
                 (p, pi) =>
                     (!selp || selp === p) &&
                     places[p].map((place, i) => {
+                        const id = tix++;
                         const [x, y] = scalePos(
                             toStl.forward(place.geometry.coordinates),
                         );
+                        const tx =
+                            moving?.idx === id
+                                ? `translate(${
+                                      (moving.pos.x - moving.origin.x) / 5
+                                  }mm, ${
+                                      (moving.pos.y - moving.origin.y) / 5
+                                  }mm)`
+                                : offsets[id]
+                                ? `translate(${offsets[id]!.x / 5}mm, ${
+                                      offsets[id]!.y / 5
+                                  }mm)`
+                                : undefined;
                         return (
-                            <React.Fragment key={pi + ':' + i}>
+                            <g
+                                onMouseDown={(evt) => {
+                                    const pos = {
+                                        x: evt.clientX,
+                                        y: evt.clientY,
+                                    };
+                                    setMoving({ origin: pos, pos, idx: id });
+                                }}
+                                key={pi + ':' + i}
+                                style={{
+                                    cursor: 'pointer',
+                                    userSelect: 'none',
+                                    transform: tx,
+                                }}
+                            >
                                 <text
                                     x={x}
                                     y={y}
@@ -538,7 +581,7 @@ const ShowPlaces = ({
                                 >
                                     {place.properties!.name}
                                 </text>
-                            </React.Fragment>
+                            </g>
                         );
                     }),
             )}

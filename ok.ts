@@ -2,7 +2,7 @@ import shapefile from 'shapefile';
 import fs from 'fs';
 import { Feature, LineString, Position } from 'geojson';
 
-const epsilon = 0.001;
+const epsilon = 0.0001;
 const closeEnough = (a: number, b: number) => Math.abs(a - b) < epsilon;
 const coordsEqual = (one: Position, two: Position) =>
     closeEnough(one[0], two[0]) && closeEnough(one[1], two[1]);
