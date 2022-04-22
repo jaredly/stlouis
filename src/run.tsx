@@ -65,19 +65,29 @@ const colors: { [key: string]: string } = {
     // tertiary: '#faa',
     // residential: '#fcc',
 
-    trunk: 'red',
-    motorway: 'green',
-    primary: 'blue',
-    secondary: 'orange',
-    tertiary: 'teal',
-    residential: 'black',
+    trunk: '#111',
+    motorway: '#333',
+    primary: '#555',
+    secondary: '#666',
+    tertiary: '#777',
+    residential: '#888',
 
-    others: 'magenta',
+    others: '#888',
+
+    // trunk: 'red',
+    // motorway: 'green',
+    // primary: 'blue',
+    // secondary: 'orange',
+    // tertiary: 'teal',
+    // residential: 'black',
+
+    // others: 'magenta',
 };
 
-const getColor = (type: string) =>
-    // colors[k] || colors.others
-    '#3a3';
+const getColor = (type: string) => '#000';
+// colors[type] || colors.others;
+// '#889';
+// '#556';
 
 const skip = [
     'service',
@@ -109,6 +119,25 @@ const averagePoint = (pos: Position[]): Pos => {
     return { x: cx / pos.length, y: cy / pos.length };
 };
 
+const justWithinBounds = (
+    inBounds: (pos: Position) => boolean,
+    points: Position[],
+) => {
+    let start = 0;
+    for (
+        start = 0;
+        start < points.length && !inBounds(points[start]);
+        start++
+    ) {
+        // ok
+    }
+    let end = points.length - 1;
+    for (end = points.length - 1; end > 0 && !inBounds(points[end]); end--) {
+        // ok
+    }
+    return points.slice(start, end + 1);
+};
+
 const App = ({
     types,
     boundary,
@@ -129,7 +158,7 @@ const App = ({
     const [pos, setPos] = React.useState(null as null | Pos);
     const [mini, setMini] = React.useState(false);
     const bounds = React.useMemo(() => {
-        const size = 3000;
+        const size = 4500;
         if (mini && pos) {
             return {
                 x0: pos.x - size,
@@ -145,7 +174,7 @@ const App = ({
         return { x0, y0, x1, y1 };
     }, [boundary.bbox, mini ? pos : null]);
 
-    const w = mini && pos ? 100 : 600;
+    const w = mini && pos ? 150 : 550;
     const dx = bounds.x1 - bounds.x0;
     const dy = bounds.y1 - bounds.y0;
     const h = (dy / dx) * w;
@@ -159,11 +188,13 @@ const App = ({
         ((x - bounds.x0) / dx) * w,
         (1 - (y - bounds.y0) / dy) * h,
     ];
+    const inBounds = ([x, y]: Position) =>
+        bounds.x0 <= x && x <= bounds.x1 && bounds.y0 <= y && y <= bounds.y1;
     const showPos = ([x, y]: Position) =>
         `${((x - bounds.x0) / dx) * w},${(1 - (y - bounds.y0) / dy) * h}`;
 
     const t = Object.keys(types)
-        .sort((a, b) => (sizes[b] || 0) - (sizes[a] || 0))
+        .sort((a, b) => (sizes[a] || 0) - (sizes[b] || 0))
         .filter((t) => !skip.includes(t));
 
     const centers = React.useMemo(() => {
@@ -173,14 +204,19 @@ const App = ({
     const ref = React.useRef(null as null | SVGSVGElement);
 
     const [url, setUrl] = React.useState(null as null | string);
-
-    const rotate = false;
-
+    const [rotate, setRotate] = React.useState(false);
     const posShow = pos ? scalePos([pos.x, pos.y]) : null;
 
     return (
         <div>
             <div style={{ padding: 24, outline: '1px solid magenta' }}>
+                <button
+                    onClick={() => {
+                        setRotate(!rotate);
+                    }}
+                >
+                    {rotate ? 'Rotate' : 'Straight'}
+                </button>
                 <button
                     onClick={() => {
                         setMini(!mini);
@@ -192,7 +228,9 @@ const App = ({
                     {url ? (
                         <a
                             href={url}
-                            download="map.svg"
+                            download={`map-${mini ? 'mini' : 'full'}-${
+                                rotate ? 'rotate' : 'straight'
+                            }.svg`}
                             onClick={() => {
                                 setTimeout(() => setUrl(null), 50);
                             }}
@@ -256,22 +294,30 @@ const App = ({
                     >
                         <g>
                             {t.map((k, ti) =>
-                                types[k].map((shape, i) => (
-                                    <polyline
-                                        fill="none"
-                                        key={ti + ':' + i}
-                                        stroke={getColor(k)}
-                                        strokeWidth={sizes[k] || 0.5}
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        points={(
-                                            shape.geometry as LineString
-                                        ).coordinates
-                                            .map(toStl.forward)
-                                            .map(showPos)
-                                            .join(' ')}
-                                    />
-                                )),
+                                types[k].map((shape, i) =>
+                                    shape.geometry.coordinates
+                                        .map(toStl.forward)
+                                        .some(inBounds) ? (
+                                        <polyline
+                                            fill="none"
+                                            key={ti + ':' + i}
+                                            stroke={getColor(k)}
+                                            strokeWidth={sizes[k] || 0.5}
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            points={justWithinBounds(
+                                                inBounds,
+                                                (
+                                                    shape.geometry as LineString
+                                                ).coordinates.map(
+                                                    toStl.forward,
+                                                ),
+                                            )
+                                                .map(showPos)
+                                                .join(' ')}
+                                        />
+                                    ) : null,
+                                ),
                             )}
                         </g>
                         <g>
@@ -279,6 +325,7 @@ const App = ({
                                 font={font}
                                 types={types}
                                 scalePos={scalePos}
+                                inBounds={inBounds}
                                 centers={centers}
                             />
                         </g>
@@ -288,6 +335,7 @@ const App = ({
                                 selp={selp}
                                 places={places}
                                 scalePos={scalePos}
+                                inBounds={inBounds}
                             />
                         </g>
                         {posShow && !mini ? (

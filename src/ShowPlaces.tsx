@@ -4,12 +4,16 @@ import { useLocalStorage, empty, Pos, toStl } from './run';
 import { useDrag } from './useDrag';
 import { RenderText } from './ShowNames';
 
+const skip = ['Southhampton', 'Doctor Martin Luther King Drive'];
+
 export const ShowPlaces = ({
     places,
     scalePos,
     font,
     selp,
+    inBounds,
 }: {
+    inBounds: (pos: Position) => boolean;
     font: opentype.Font;
     selp: string | null;
     scalePos: (pos: Position) => Position;
@@ -31,6 +35,7 @@ export const ShowPlaces = ({
     });
 
     let tix = 0;
+    const seen: { [key: string]: true } = {};
     return (
         <>
             {Object.keys(places).map(
@@ -38,24 +43,38 @@ export const ShowPlaces = ({
                     (!selp || selp === p) &&
                     places[p].map((place, i) => {
                         const id = tix++;
-                        const [x, y] = scalePos(
-                            toStl.forward(place.geometry.coordinates),
-                        );
+                        const stl = toStl.forward(place.geometry.coordinates);
+                        if (!inBounds(stl)) {
+                            return;
+                        }
+                        const name = place.properties!.name;
+                        if (skip.includes(name)) {
+                            return;
+                        }
+                        if (seen[name]) {
+                            return;
+                        }
+                        seen[name] = true;
+                        const [x, y] = scalePos(stl);
                         const tx =
                             moving?.idx === id
-                                ? `translate(${
-                                      (moving.pos.x - moving.origin.x) / 5
-                                  }mm, ${
-                                      (moving.pos.y - moving.origin.y) / 5
-                                  }mm)`
+                                ? `translate(${(
+                                      moving.pos.x - moving.origin.x
+                                  ).toFixed(3)} ${(
+                                      moving.pos.y - moving.origin.y
+                                  ).toFixed(3)})`
                                 : offsets[id]
-                                ? `translate(${offsets[id]!.x / 5}mm, ${
-                                      offsets[id]!.y / 5
-                                  }mm)`
+                                ? `translate(${offsets[id]!.x.toFixed(
+                                      3,
+                                  )} ${offsets[id]!.y.toFixed(3)})`
                                 : undefined;
                         return (
                             <g
                                 onMouseDown={(evt) => {
+                                    if (evt.button !== 0) {
+                                        console.log('button', evt.button);
+                                        return;
+                                    }
                                     const pos = {
                                         x: evt.clientX,
                                         y: evt.clientY,
@@ -66,11 +85,11 @@ export const ShowPlaces = ({
                                 style={{
                                     cursor: 'pointer',
                                     userSelect: 'none',
-                                    transform: tx,
                                 }}
+                                transform={tx}
                             >
                                 <RenderText
-                                    text={place.properties!.name}
+                                    text={name}
                                     x={x}
                                     y={y}
                                     transform=""

@@ -66,11 +66,13 @@ export const RenderText = React.memo(
 export const ShowNames = ({
     types,
     scalePos,
+    inBounds,
     centers,
     font,
 }: {
     font: opentype.Font;
     centers: Centers;
+    inBounds: (pos: Position) => boolean;
     scalePos: (pos: Position) => Position;
     types: {
         [key: string]: Array<Feature<LineString>>;
@@ -105,9 +107,14 @@ export const ShowNames = ({
                     const idx = Math.floor(
                         shape.geometry.coordinates.length / 2,
                     );
-                    const [x, y] = scalePos(
-                        toStl.forward([center.x, center.y]),
-                    );
+                    const stl = toStl.forward([center.x, center.y]);
+                    if (!inBounds(stl)) {
+                        return;
+                    }
+                    if (offsets[id] === null) {
+                        return;
+                    }
+                    const [x, y] = scalePos(stl);
 
                     p1 = scalePos(toStl.forward(p1));
                     p2 = scalePos(toStl.forward(p2));
@@ -132,10 +139,21 @@ export const ShowNames = ({
                     if (!shape.properties!.name) {
                         return;
                     }
+                    if (!theta || isNaN(theta)) {
+                        console.log('bad theta', theta);
+                    }
                     return (
                         <g
                             key={i}
+                            onContextMenu={(evt) => {
+                                evt.preventDefault();
+                                setOffsets((off) => ({ ...off, [id]: null }));
+                            }}
                             onMouseDown={(evt) => {
+                                if (evt.button !== 0) {
+                                    console.log('button', evt.button);
+                                    return;
+                                }
                                 const pos = { x: evt.clientX, y: evt.clientY };
                                 setMoving({ origin: pos, pos, idx: id });
                             }}
