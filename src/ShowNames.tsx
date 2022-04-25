@@ -89,7 +89,14 @@ export const ShowNames = ({
 }) => {
     const [offsets, setOffsets] = useLocalStorage(
         'names-new',
-        empty as { [key: string]: null | Pos },
+        empty as {
+            [key: string]: null | {
+                x: number;
+                y: number;
+                rotate?: number;
+                scale?: number;
+            };
+        },
     );
     const [moving, setMoving] = useDrag((moving) => {
         if (!moving.moved) {
@@ -97,7 +104,15 @@ export const ShowNames = ({
         }
         setOffsets((off) => {
             const r = { ...off };
-            r[moving.key] = moving.pos;
+            if (moving.extra === 'rotate') {
+                r[moving.key] = {
+                    ...moving.origin,
+                    ...r[moving.key],
+                    rotate: -angleTo(moving.origin, moving.pos),
+                };
+            } else {
+                r[moving.key] = { ...r[moving.key], ...moving.pos };
+            }
             return r;
         });
     }, backPos);
@@ -115,7 +130,7 @@ export const ShowNames = ({
                     }
                     let [_, __, center, p1, p2] = centers[key].closest;
                     const stl =
-                        moving?.key === key && moving.moved
+                        moving?.key === key && moving.moved && !moving.extra
                             ? moving.pos
                             : offsets[key] ?? toStl.forward(center);
                     if (!inBounds([stl.x, stl.y])) return;
@@ -131,6 +146,12 @@ export const ShowNames = ({
                     if (theta < -Math.PI / 2) {
                         theta += Math.PI;
                     }
+                    let rotate =
+                        moving?.extra === 'rotate' &&
+                        moving?.key === key &&
+                        moving.moved
+                            ? -angleTo(moving.origin, moving.pos)
+                            : offsets[key]?.rotate ?? theta;
                     return (
                         <g
                             key={key}
@@ -151,6 +172,7 @@ export const ShowNames = ({
                                     pos,
                                     key,
                                     moved: false,
+                                    extra: evt.shiftKey ? 'rotate' : undefined,
                                 });
                             }}
                             style={{
@@ -171,7 +193,9 @@ export const ShowNames = ({
                                         : 'white'
                                 }
                                 fontSize={fontSizes[k]}
-                                transform={`rotate(${(theta / Math.PI) * 180})`}
+                                transform={`rotate(${
+                                    (rotate / Math.PI) * 180
+                                })`}
                             />
                         </g>
                     );
@@ -180,3 +204,6 @@ export const ShowNames = ({
         </>
     );
 };
+export function angleTo(origin: Pos, pos: Pos) {
+    return Math.atan2(pos.y - origin.y, pos.x - origin.x);
+}

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Feature, Position, Point } from 'geojson';
 import { useLocalStorage, empty, Pos, toStl, Selected } from './run';
 import { useDrag } from './useDrag';
-import { RenderText } from './ShowNames';
+import { angleTo, RenderText } from './ShowNames';
 
 const skip = ['Southhampton', 'Doctor Martin Luther King Drive'];
 
@@ -27,7 +27,14 @@ export const ShowPlaces = ({
 }) => {
     const [offsets, setOffsets] = useLocalStorage(
         'places-new',
-        empty as { [key: string]: null | Pos },
+        empty as {
+            [key: string]: null | {
+                x: number;
+                y: number;
+                rotate?: number;
+                scale?: number;
+            };
+        },
     );
     const [moving, setMoving] = useDrag((moving) => {
         if (!moving.moved) {
@@ -35,7 +42,15 @@ export const ShowPlaces = ({
         }
         setOffsets((off) => {
             const r = { ...off };
-            r[moving.key] = moving.pos;
+            if (moving.extra === 'rotate') {
+                r[moving.key] = {
+                    ...moving.origin,
+                    ...r[moving.key],
+                    rotate: -angleTo(moving.origin, moving.pos),
+                };
+            } else {
+                r[moving.key] = { ...r[moving.key], ...moving.pos };
+            }
             return r;
         });
     }, backPos);
@@ -61,10 +76,20 @@ export const ShowPlaces = ({
                         }
                         seen[name] = true;
                         const position =
-                            moving?.key === key && moving?.moved
+                            moving?.key === key &&
+                            moving?.moved &&
+                            !moving.extra
                                 ? moving.pos
                                 : offsets[key] ?? { x: stl[0], y: stl[1] };
                         const [x, y] = scalePos([position.x, position.y]);
+
+                        let rotate =
+                            moving?.extra === 'rotate' &&
+                            moving?.key === key &&
+                            moving.moved
+                                ? -angleTo(moving.origin, moving.pos)
+                                : offsets[key]?.rotate ?? 0;
+
                         return (
                             <g
                                 onMouseDown={(evt) => {
@@ -72,15 +97,15 @@ export const ShowPlaces = ({
                                         console.log('button', evt.button);
                                         return;
                                     }
-                                    const pos = {
-                                        x: evt.clientX,
-                                        y: evt.clientY,
-                                    };
+                                    const pos = backPos(evt);
                                     setMoving({
                                         origin: pos,
                                         pos,
                                         key,
                                         moved: false,
+                                        extra: evt.shiftKey
+                                            ? 'rotate'
+                                            : undefined,
                                     });
                                     setSelected({ type: 'place', name });
                                 }}
@@ -95,7 +120,6 @@ export const ShowPlaces = ({
                                     text={name}
                                     x={x}
                                     y={y}
-                                    transform=""
                                     fontSize={6}
                                     bgColor={
                                         selected?.type === 'place' &&
@@ -104,6 +128,9 @@ export const ShowPlaces = ({
                                             : 'white'
                                     }
                                     font={font}
+                                    transform={`rotate(${
+                                        (rotate / Math.PI) * 180
+                                    })`}
                                 />
                                 {/* <text
                                     x={x}
