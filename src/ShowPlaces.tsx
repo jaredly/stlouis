@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Feature, Position, Point } from 'geojson';
-import { useLocalStorage, empty, Pos, toStl } from './run';
+import { useLocalStorage, empty, Pos, toStl, Selected } from './run';
 import { useDrag } from './useDrag';
 import { RenderText } from './ShowNames';
 
@@ -12,29 +12,34 @@ export const ShowPlaces = ({
     font,
     selp,
     inBounds,
+    backPos,
+    selected,
+    setSelected,
 }: {
     inBounds: (pos: Position) => boolean;
     font: opentype.Font;
     selp: string | null;
     scalePos: (pos: Position) => Position;
     places: { [key: string]: Array<Feature<Point>> };
+    backPos: (pos: { clientX: number; clientY: number }) => Pos;
+    selected: Selected | null;
+    setSelected: React.Dispatch<React.SetStateAction<Selected | null>>;
 }) => {
     const [offsets, setOffsets] = useLocalStorage(
-        'places',
+        'places-new',
         empty as { [key: string]: null | Pos },
     );
     const [moving, setMoving] = useDrag((moving) => {
+        if (!moving.moved) {
+            return;
+        }
         setOffsets((off) => {
             const r = { ...off };
-            r[moving.idx] = {
-                x: moving.pos.x - moving.origin.x,
-                y: moving.pos.y - moving.origin.y,
-            };
+            r[moving.key] = moving.pos;
             return r;
         });
-    });
+    }, backPos);
 
-    let tix = 0;
     const seen: { [key: string]: true } = {};
     return (
         <>
@@ -42,12 +47,12 @@ export const ShowPlaces = ({
                 (p, pi) =>
                     (!selp || selp === p) &&
                     places[p].map((place, i) => {
-                        const id = tix++;
                         const stl = toStl.forward(place.geometry.coordinates);
                         if (!inBounds(stl)) {
                             return;
                         }
                         const name = place.properties!.name;
+                        const key = name;
                         if (skip.includes(name)) {
                             return;
                         }
@@ -55,19 +60,11 @@ export const ShowPlaces = ({
                             return;
                         }
                         seen[name] = true;
-                        const [x, y] = scalePos(stl);
-                        const tx =
-                            moving?.idx === id
-                                ? `translate(${(
-                                      moving.pos.x - moving.origin.x
-                                  ).toFixed(3)} ${(
-                                      moving.pos.y - moving.origin.y
-                                  ).toFixed(3)})`
-                                : offsets[id]
-                                ? `translate(${offsets[id]!.x.toFixed(
-                                      3,
-                                  )} ${offsets[id]!.y.toFixed(3)})`
-                                : undefined;
+                        const position =
+                            moving?.key === key && moving?.moved
+                                ? moving.pos
+                                : offsets[key] ?? { x: stl[0], y: stl[1] };
+                        const [x, y] = scalePos([position.x, position.y]);
                         return (
                             <g
                                 onMouseDown={(evt) => {
@@ -79,14 +76,20 @@ export const ShowPlaces = ({
                                         x: evt.clientX,
                                         y: evt.clientY,
                                     };
-                                    setMoving({ origin: pos, pos, idx: id });
+                                    setMoving({
+                                        origin: pos,
+                                        pos,
+                                        key,
+                                        moved: false,
+                                    });
+                                    setSelected({ type: 'place', name });
                                 }}
                                 key={pi + ':' + i}
                                 style={{
                                     cursor: 'pointer',
                                     userSelect: 'none',
                                 }}
-                                transform={tx}
+                                // transform={tx}
                             >
                                 <RenderText
                                     text={name}
@@ -94,6 +97,12 @@ export const ShowPlaces = ({
                                     y={y}
                                     transform=""
                                     fontSize={6}
+                                    bgColor={
+                                        selected?.type === 'place' &&
+                                        selected.name === name
+                                            ? 'green'
+                                            : 'white'
+                                    }
                                     font={font}
                                 />
                                 {/* <text

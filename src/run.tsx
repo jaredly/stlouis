@@ -131,6 +131,7 @@ export type Centers = {
             x: number;
             y: number;
         };
+        totalLength: number;
         closest: [number, Feature<LineString>, Pos, Position, Position];
     };
 };
@@ -163,6 +164,10 @@ const justWithinBounds = (
     }
     return points.slice(start, end + 1);
 };
+
+export type Selected =
+    | { type: 'road'; name: string; kind: string }
+    | { type: 'place'; name: string };
 
 const App = ({
     types,
@@ -202,6 +207,8 @@ const App = ({
         return { x0, y0, x1, y1 };
     }, [boundary.bbox, mini ? pos : null]);
 
+    const [selected, setSelected] = React.useState(null as null | Selected);
+
     const [detail, setDetail] = React.useState(false);
 
     const scaleDown = 3;
@@ -219,7 +226,11 @@ const App = ({
     const fullWidth = (rotW + viewMargin * 2) / scaleDown;
     const fullHeight = (rotH + viewMargin * 2) / scaleDown;
 
-    const backPos = ({ x, y }: Pos) => {
+    const backPos = (evt: { clientX: number; clientY: number }) => {
+        // { x, y }: Pos) => {
+        const b = ref.current!.getBoundingClientRect();
+        let x = (evt.clientX - b.left) / b.width;
+        let y = (evt.clientY - b.top) / b.height;
         x = (x * w - viewMargin) / w;
         y = ((1 - y) * h + viewMargin) / h;
         x = x * dx + bounds.x0;
@@ -314,23 +325,17 @@ const App = ({
                     ref={(n) => {
                         ref.current = n;
                     }}
-                    onMouseMove={(evt) => {
-                        const b = ref.current!.getBoundingClientRect();
-                        setPos(
-                            backPos({
-                                x: (evt.clientX - b.left) / b.width,
-                                y: (evt.clientY - b.top) / b.height,
-                            }),
-                        );
-                    }}
+                    // onMouseMove={(evt) => {
+                    //     const b = ref.current!.getBoundingClientRect();
+                    //     setPos(
+                    //         backPos({
+                    //             x: (evt.clientX - b.left) / b.width,
+                    //             y: (evt.clientY - b.top) / b.height,
+                    //         }),
+                    //     );
+                    // }}
                     onClick={(evt) => {
-                        const b = ref.current!.getBoundingClientRect();
-                        setPos(
-                            backPos({
-                                x: evt.clientX - b.left,
-                                y: evt.clientY - b.top,
-                            }),
-                        );
+                        setPos(backPos(evt));
                     }}
                 >
                     <clipPath id="rect-clip">
@@ -371,6 +376,15 @@ const App = ({
                             rotate ? `rotate(-90) translate(${-w} 0)` : ''
                         }
                     >
+                        {posShow && !mini && !detail ? (
+                            <circle
+                                cx={posShow[0]}
+                                cy={posShow[1]}
+                                r={5}
+                                stroke="red"
+                                fill="none"
+                            />
+                        ) : null}
                         <g>
                             {detail &&
                                 natural.features.map((feat, i) => (
@@ -403,7 +417,14 @@ const App = ({
                                                 fill="none"
                                                 key={ti + ':' + i}
                                                 data-type={k}
-                                                stroke={getColor(k)}
+                                                stroke={
+                                                    selected?.type === 'road' &&
+                                                    selected.kind === k &&
+                                                    selected.name ===
+                                                        shape.properties!.name
+                                                        ? 'green'
+                                                        : getColor(k)
+                                                }
                                                 strokeWidth={sizes[k] || 0.5}
                                                 strokeLinecap="round"
                                                 strokeLinejoin="round"
@@ -427,8 +448,11 @@ const App = ({
                                 font={font}
                                 types={types}
                                 scalePos={scalePos}
+                                backPos={backPos}
                                 inBounds={inBounds}
                                 centers={centers}
+                                selected={selected}
+                                setSelected={setSelected}
                             />
                         </g>
                         <g>
@@ -437,49 +461,70 @@ const App = ({
                                 selp={selp}
                                 places={places}
                                 scalePos={scalePos}
+                                backPos={backPos}
                                 inBounds={inBounds}
+                                selected={selected}
+                                setSelected={setSelected}
                             />
                         </g>
-                        {posShow && !mini ? (
-                            <circle
-                                cx={posShow[0]}
-                                cy={posShow[1]}
-                                r={5}
-                                fill="red"
-                            />
-                        ) : null}
                         <g>
-                            {neighborhoods.features.map((feature, i) =>
-                                feature.geometry.type === 'Polygon' ? (
+                            {neighborhoods.features.map((feature, i) => {
+                                const isSelected =
+                                    selected?.type === 'place' &&
+                                    (selected.name ===
+                                        feature.properties!.NHD_NAME ||
+                                        selected.name ===
+                                            nbhNames[
+                                                feature.properties!.NHD_NAME
+                                            ]);
+
+                                const color = isSelected ? 'green' : 'red';
+
+                                return feature.geometry.type === 'Polygon' ? (
                                     <polygon
+                                        data-name={feature.properties!.NHD_NAME}
                                         points={feature.geometry.coordinates[0]
                                             .map(showPos)
                                             .join(' ')}
                                         fill="none"
-                                        stroke="red"
+                                        strokeWidth={isSelected ? 3 : 1}
+                                        stroke={color}
                                         key={i}
                                     />
                                 ) : (
                                     feature.geometry.coordinates.map((coord) =>
                                         coord.map((path, ii) => (
                                             <polygon
+                                                data-name={
+                                                    feature.properties!.NHD_NAME
+                                                }
                                                 points={path
                                                     .map(showPos)
                                                     .join(' ')}
                                                 fill="none"
-                                                stroke="red"
+                                                strokeWidth={isSelected ? 3 : 1}
+                                                stroke={
+                                                    isSelected ? 'green' : 'red'
+                                                }
                                                 key={i + ':' + ii}
                                             />
                                         )),
                                     )
-                                ),
-                            )}
+                                );
+                            })}
                         </g>
                     </g>
                 </svg>
             </div>
         </div>
     );
+};
+
+const nbhNames: { [key: string]: string } = {
+    'Jeff Vanderlou': 'Jeff-Vander-Lou',
+    'Fairground Neighborhood': 'Fairground',
+    'Covenant Blu-Grand Center': 'Covenant Blu Grand Center',
+    'The Gate District': 'Gate District',
 };
 
 export const useLocalStorage = <T,>(
@@ -665,6 +710,7 @@ function calculateCenters(types: {
             px /= n;
             py /= n;
             const center = { x: px, y: py };
+            let totalLength = 0;
             let closest = null as
                 | null
                 | [number, Feature<LineString>, Pos, Position, Position];
@@ -672,6 +718,16 @@ function calculateCenters(types: {
                 if (feature.geometry.coordinates.length < 2) {
                     return;
                 }
+
+                feature.geometry.coordinates.slice(1).forEach((coord, i) => {
+                    const last = feature.geometry.coordinates[i];
+                    const p1 = toStl.forward(last);
+                    const p2 = toStl.forward(coord);
+                    const dx = p1[0] - p2[0];
+                    const dy = p1[1] - p2[1];
+                    totalLength += Math.sqrt(dx * dx + dy * dy);
+                });
+
                 const midx = Math.floor(
                     (feature.geometry.coordinates.length - 1) / 2,
                 );
@@ -686,7 +742,11 @@ function calculateCenters(types: {
                     closest = [d, feature, mid, p1, p2];
                 }
             });
-            centers[key + ':' + name] = { center, closest: closest! };
+            centers[key + ':' + name] = {
+                center,
+                closest: closest!,
+                totalLength,
+            };
         });
     });
     return centers;

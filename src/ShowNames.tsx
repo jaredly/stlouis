@@ -8,6 +8,7 @@ import {
     labeled,
     toStl,
     fontSizes,
+    Selected,
 } from './run';
 import { useDrag } from './useDrag';
 
@@ -19,6 +20,7 @@ export const RenderText = React.memo(
         y,
         fontSize,
         transform,
+        bgColor = 'white',
     }: {
         transform?: string;
         font: opentype.Font;
@@ -26,6 +28,7 @@ export const RenderText = React.memo(
         x: number;
         y: number;
         fontSize: number;
+        bgColor?: string;
     }) => {
         const { path, w } = React.useMemo(() => {
             const w = font.getAdvanceWidth(text, fontSize);
@@ -45,8 +48,8 @@ export const RenderText = React.memo(
                     transform={transform}
                     // transform-origin={`${x} ${y}`}
                     d={path}
-                    fill="white"
-                    stroke="white"
+                    fill={bgColor}
+                    stroke={bgColor}
                     strokeWidth={4}
                     strokeLinejoin="round"
                     strokeLinecap="round"
@@ -66,6 +69,9 @@ export const RenderText = React.memo(
 export const ShowNames = ({
     types,
     scalePos,
+    backPos,
+    selected,
+    setSelected,
     inBounds,
     centers,
     font,
@@ -74,47 +80,47 @@ export const ShowNames = ({
     centers: Centers;
     inBounds: (pos: Position) => boolean;
     scalePos: (pos: Position) => Position;
+    backPos: (pos: { clientX: number; clientY: number }) => Pos;
+    selected: Selected | null;
+    setSelected: React.Dispatch<React.SetStateAction<Selected | null>>;
     types: {
         [key: string]: Array<Feature<LineString>>;
     };
 }) => {
     const [offsets, setOffsets] = useLocalStorage(
-        'names',
+        'names-new',
         empty as { [key: string]: null | Pos },
     );
     const [moving, setMoving] = useDrag((moving) => {
+        if (!moving.moved) {
+            return;
+        }
         setOffsets((off) => {
             const r = { ...off };
-            r[moving.idx] = {
-                x: moving.pos.x - moving.origin.x,
-                y: moving.pos.y - moving.origin.y,
-            };
+            r[moving.key] = moving.pos;
             return r;
         });
-    });
+    }, backPos);
 
-    let tix = 0;
     return (
         <>
-            {labeled.map((k, ti) =>
-                types[k].map((shape, i) => {
-                    const key = `${k}:${shape.properties!.name}`;
-                    if (shape !== centers[key].closest[1]) {
+            {labeled.map((k) =>
+                types[k].map((shape) => {
+                    const name = shape.properties!.name;
+                    if (!name) return;
+                    const key = `${k}:${name}`;
+                    if (shape !== centers[key].closest[1]) return;
+                    if (centers[key].totalLength < 2000) {
                         return;
                     }
                     let [_, __, center, p1, p2] = centers[key].closest;
-                    const id = tix++;
-                    const idx = Math.floor(
-                        shape.geometry.coordinates.length / 2,
-                    );
-                    const stl = toStl.forward([center.x, center.y]);
-                    if (!inBounds(stl)) {
-                        return;
-                    }
-                    if (offsets[id] === null) {
-                        return;
-                    }
-                    const [x, y] = scalePos(stl);
+                    const stl =
+                        moving?.key === key && moving.moved
+                            ? moving.pos
+                            : offsets[key] ?? toStl.forward(center);
+                    if (!inBounds([stl.x, stl.y])) return;
+                    if (offsets[key] === null) return;
+                    const [x, y] = scalePos([stl.x, stl.y]);
 
                     p1 = scalePos(toStl.forward(p1));
                     p2 = scalePos(toStl.forward(p2));
@@ -125,49 +131,45 @@ export const ShowNames = ({
                     if (theta < -Math.PI / 2) {
                         theta += Math.PI;
                     }
-                    const off = 1;
-                    const tx =
-                        moving?.idx === id
-                            ? `translate(${
-                                  (moving.pos.x - moving.origin.x) / off
-                              } ${(moving.pos.y - moving.origin.y) / off})`
-                            : offsets[id]
-                            ? `translate(${offsets[id]!.x / off} ${
-                                  offsets[id]!.y / off
-                              })`
-                            : undefined;
-                    if (!shape.properties!.name) {
-                        return;
-                    }
-                    if (!theta || isNaN(theta)) {
-                        console.log('bad theta', theta);
-                    }
                     return (
                         <g
-                            key={i}
+                            key={key}
                             onContextMenu={(evt) => {
                                 evt.preventDefault();
-                                setOffsets((off) => ({ ...off, [id]: null }));
+                                setOffsets((off) => ({ ...off, [key]: null }));
                             }}
                             onMouseDown={(evt) => {
                                 if (evt.button !== 0) {
                                     console.log('button', evt.button);
                                     return;
                                 }
-                                const pos = { x: evt.clientX, y: evt.clientY };
-                                setMoving({ origin: pos, pos, idx: id });
+                                setSelected({ type: 'road', kind: k, name });
+                                const pos = backPos(evt);
+                                console.log('back', backPos);
+                                setMoving({
+                                    origin: pos,
+                                    pos,
+                                    key,
+                                    moved: false,
+                                });
                             }}
                             style={{
                                 cursor: 'pointer',
                                 userSelect: 'none',
                             }}
-                            transform={tx}
                         >
                             <RenderText
                                 font={font}
-                                text={shape.properties!.name}
+                                text={name}
                                 x={x}
                                 y={y}
+                                bgColor={
+                                    selected?.type === 'road' &&
+                                    selected.kind === k &&
+                                    selected.name === name
+                                        ? 'green'
+                                        : 'white'
+                                }
                                 fontSize={fontSizes[k]}
                                 transform={`rotate(${(theta / Math.PI) * 180})`}
                             />
