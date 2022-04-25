@@ -5,15 +5,18 @@ import {
     Feature,
     LineString,
     Polygon,
+    MultiPolygon,
     Position,
     FeatureCollection,
     Point,
+    Geometry,
+    GeoJsonProperties,
 } from 'geojson';
 import proj4 from 'proj4';
 import { ShowNames } from './ShowNames';
 import { ShowPlaces } from './ShowPlaces';
 import opentype from 'opentype.js';
-// import PathKitInit from 'pathkit-wasm';
+import PathKitInit from 'pathkit-wasm';
 
 const stlProj =
     'PROJCS["NAD_1983_StatePlane_Missouri_East_FIPS_2401_Feet",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",820208.3333333333],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-90.5],PARAMETER["Scale_Factor",0.9999333333333333],PARAMETER["Latitude_Of_Origin",35.83333333333334],UNIT["Foot_US",0.3048006096012192]]';
@@ -41,9 +44,9 @@ const dist = (a: Pos, b: Pos) => {
 export type Pos = { x: number; y: number };
 
 const sizes: { [key: string]: number } = {
-    trunk: 6,
-    motorway: 6,
-    primary: 4,
+    trunk: 2,
+    motorway: 2,
+    primary: 2,
     secondary: 2,
     tertiary: 1,
     residential: 0.5,
@@ -84,19 +87,42 @@ const colors: { [key: string]: string } = {
     // others: 'magenta',
 };
 
-const getColor = (type: string) => '#000';
+const waterSize = {
+    canal: 7,
+    dam: 1,
+    ditch: 2,
+    dock: 1,
+    drain: 1,
+    river: 10,
+    stream: 3,
+    weir: 1,
+};
+
+const roadColor: { [key: string]: string } = {
+    residential: '#888',
+    others: '#888',
+    unclassified: '#888',
+    cycleway: '#888',
+    service: '#bbb',
+    track: '#bbb',
+    construction: '#bbb',
+};
+
+const getColor = (type: string) => roadColor[type] || '#222';
 // colors[type] || colors.others;
 // '#889';
 // '#556';
 
 const skip = [
-    'service',
+    // 'service',
     'footway',
     'pedestrian',
     'steps',
     'elevator',
     'living_street',
     'path',
+    // TODO: turn this off again
+    // 'residential',
 ];
 
 export type Centers = {
@@ -142,11 +168,16 @@ const App = ({
     types,
     boundary,
     places,
+    neighborhoods,
     font,
     headerFont,
+    natural,
 }: {
     types: { [key: string]: Array<Feature<LineString>> };
+    neighborhoods: FeatureCollection<Polygon | MultiPolygon>;
+    waterways: FeatureCollection<LineString>;
     boundary: FeatureCollection;
+    natural: FeatureCollection<Polygon>;
     places: { [key: string]: Array<Feature<Point>> };
     font: opentype.Font;
     headerFont: opentype.Font;
@@ -165,11 +196,15 @@ const App = ({
             };
         }
         let [x0, y0, x1, y1] = boundary.bbox!;
-        y1 = 1047986.8701159965;
-        y0 = 989536.881186489;
-        x1 = 911486.1515920038;
+        // y1 = 1047986.8701159965;
+        // y0 = 989536.881186489;
+        // x1 = 911486.1515920038;
         return { x0, y0, x1, y1 };
     }, [boundary.bbox, mini ? pos : null]);
+
+    const [detail, setDetail] = React.useState(false);
+
+    const scaleDown = 3;
 
     const w = mini && pos ? 140 : 519;
     const dx = bounds.x1 - bounds.x0;
@@ -207,6 +242,13 @@ const App = ({
     return (
         <div>
             <div style={{ padding: 24, outline: '1px solid magenta' }}>
+                <button
+                    onClick={() => {
+                        setDetail(!detail);
+                    }}
+                >
+                    {detail ? 'Hide Detail' : 'Show Detail'}
+                </button>
                 <button
                     onClick={() => {
                         setRotate(!rotate);
@@ -247,13 +289,13 @@ const App = ({
                             Download
                         </button>
                     )}
-                    <div>
+                    <span>
                         {pos ? `${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}` : ''}
-                    </div>
+                    </span>
                 </div>
                 <svg
-                    width={((rotate ? h : w) + 20) / 1 + 'mm'}
-                    height={((rotate ? w : h) + 20) / 1 + 'mm'}
+                    width={((rotate ? h : w) + 20) / scaleDown + 'mm'}
+                    height={((rotate ? w : h) + 20) / scaleDown + 'mm'}
                     viewBox={`${-10} ${-10} ${(rotate ? h : w) + 20} ${
                         (rotate ? w : h) + 20
                     }`}
@@ -272,7 +314,27 @@ const App = ({
                     }}
                 >
                     <clipPath id="rect-clip">
-                        <rect x={0} y={0} width={w} height={h} />
+                        {neighborhoods.features.map((feature, i) =>
+                            feature.geometry.type === 'Polygon'
+                                ? feature.geometry.coordinates.map((coord) => (
+                                      <polygon
+                                          points={coord.map(showPos).join(' ')}
+                                          fill="black"
+                                          key={i}
+                                      />
+                                  ))
+                                : feature.geometry.coordinates.map((coord) =>
+                                      coord.map((path, ii) => (
+                                          <polygon
+                                              points={path
+                                                  .map(showPos)
+                                                  .join(' ')}
+                                              fill="black"
+                                              key={i + ':' + ii}
+                                          />
+                                      )),
+                                  ),
+                        )}
                     </clipPath>
                     <rect
                         x={-10}
@@ -284,37 +346,60 @@ const App = ({
                         strokeWidth={1}
                     />
                     <g
-                        clipPath="url(#rect-clip)"
+                        clipPath={detail ? 'url(#rect-clip)' : undefined}
                         transform={
                             rotate ? `rotate(-90) translate(${-w} 0)` : ''
                         }
                     >
                         <g>
-                            {t.map((k, ti) =>
-                                types[k].map((shape, i) =>
-                                    shape.geometry.coordinates
-                                        .map(toStl.forward)
-                                        .some(inBounds) ? (
-                                        <polyline
-                                            fill="none"
-                                            key={ti + ':' + i}
-                                            stroke={getColor(k)}
-                                            strokeWidth={sizes[k] || 0.5}
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            points={justWithinBounds(
-                                                inBounds,
-                                                (
-                                                    shape.geometry as LineString
-                                                ).coordinates.map(
-                                                    toStl.forward,
-                                                ),
-                                            )
-                                                .map(showPos)
-                                                .join(' ')}
-                                        />
-                                    ) : null,
-                                ),
+                            {detail &&
+                                natural.features.map((feat, i) => (
+                                    <polygon
+                                        key={i}
+                                        points={feat.geometry.coordinates[0]
+                                            .map(toStl.forward)
+                                            .map(showPos)
+                                            .join(' ')}
+                                        fill={
+                                            feat.properties!.type === 'water'
+                                                ? '#222'
+                                                : feat.properties!.type ===
+                                                  'forest'
+                                                ? '#666'
+                                                : '#ddd'
+                                        }
+                                    />
+                                ))}
+                        </g>
+                        <g>
+                            {t.map(
+                                (k, ti) =>
+                                    (detail || !roadColor[k]) &&
+                                    types[k].map((shape, i) =>
+                                        shape.geometry.coordinates
+                                            .map(toStl.forward)
+                                            .some(inBounds) ? (
+                                            <polyline
+                                                fill="none"
+                                                key={ti + ':' + i}
+                                                data-type={k}
+                                                stroke={getColor(k)}
+                                                strokeWidth={sizes[k] || 0.5}
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                points={justWithinBounds(
+                                                    inBounds,
+                                                    (
+                                                        shape.geometry as LineString
+                                                    ).coordinates.map(
+                                                        toStl.forward,
+                                                    ),
+                                                )
+                                                    .map(showPos)
+                                                    .join(' ')}
+                                            />
+                                        ) : null,
+                                    ),
                             )}
                         </g>
                         <g>
@@ -343,6 +428,33 @@ const App = ({
                                 fill="red"
                             />
                         ) : null}
+                        <g>
+                            {neighborhoods.features.map((feature, i) =>
+                                feature.geometry.type === 'Polygon' ? (
+                                    <polygon
+                                        points={feature.geometry.coordinates[0]
+                                            .map(showPos)
+                                            .join(' ')}
+                                        fill="none"
+                                        stroke="red"
+                                        key={i}
+                                    />
+                                ) : (
+                                    feature.geometry.coordinates.map((coord) =>
+                                        coord.map((path, ii) => (
+                                            <polygon
+                                                points={path
+                                                    .map(showPos)
+                                                    .join(' ')}
+                                                fill="none"
+                                                stroke="red"
+                                                key={i + ':' + ii}
+                                            />
+                                        )),
+                                    )
+                                ),
+                            )}
+                        </g>
                     </g>
                 </svg>
             </div>
@@ -373,17 +485,29 @@ export const empty = {};
 
 const root = createRoot(document.getElementById('root')!);
 
-const getShp = (name: string) => {
+const getShp = <T extends Geometry | null = Geometry, P = GeoJsonProperties>(
+    name: string,
+): Promise<FeatureCollection<T, P>> => {
     return Promise.all([
         fetch(name + '.shp').then((r) => r.arrayBuffer()),
         fetch(name + '.dbf').then((r) => r.arrayBuffer()),
     ]).then(([shp, dbf]) => {
         return shapefile.read(shp, dbf);
-    });
+    }) as Promise<FeatureCollection<T, P>>;
 };
 
 const run = async () => {
-    const [roads, font, headerFont, boundary, places] = await Promise.all([
+    const [
+        roads,
+        font,
+        headerFont,
+        boundary,
+        places,
+        neighborhoods,
+        waterways,
+        natural,
+        PathKit,
+    ] = await Promise.all([
         fetch('./roads.json').then(
             (r): Promise<{ [key: string]: Array<Feature<LineString>> }> =>
                 r.json(),
@@ -396,7 +520,18 @@ const run = async () => {
         ),
         getShp('./data/stl_boundary/stl_boundary'),
         getShp('./data/places'),
+        getShp<Polygon | MultiPolygon>(
+            './data/nbrhds_wards/Neighborhood_Boundaries',
+        ),
+        getShp<LineString>('./data/waterways'),
+        getShp<Polygon>('./data/natural'),
+        PathKitInit({
+            locateFile: (file: string) =>
+                '/node_modules/pathkit-wasm/bin/' + file,
+            // '/bin/' + file,
+        }),
     ]);
+    // console.log(natural);
 
     const placeTypes: { [key: string]: Array<Feature<Point>> } = {};
     places.features.forEach((p) => {
@@ -410,6 +545,59 @@ const run = async () => {
     delete placeTypes['island'];
     delete placeTypes['locality'];
 
+    delete placeTypes['hamlet'];
+    delete placeTypes['town'];
+    delete placeTypes['village'];
+    console.log(boundary);
+
+    // let [x0, y0, x1, y1] = boundary.bbox!;
+    // const bounds = { x0, y0, x1, y1 };
+
+    // const w = 519;
+    // const dx = bounds.x1 - bounds.x0;
+    // const dy = bounds.y1 - bounds.y0;
+    // const h = (dy / dx) * w;
+
+    // const px = (x: number) => ((x - bounds.x0) / dx) * w;
+    // const py = (y: number) => (1 - (y - bounds.y0) / dy) * h;
+    // // const showPos = ([x, y]: Position) =>
+    // //     `${((x - bounds.x0) / dx) * w},${(1 - (y - bounds.y0) / dy) * h}`;
+
+    // const addPoly = (path: Position[]) => {
+    //     const inner = PathKit.NewPath();
+    //     path.forEach((coord, i) => {
+    //         if (i === 0) {
+    //             inner.moveTo(px(coord[0]), py(coord[1]));
+    //         } else {
+    //             inner.lineTo(px(coord[0]), py(coord[1]));
+    //         }
+    //     });
+    //     inner.close();
+    //     allBoundary.op(inner, PathKit.PathOp.UNION);
+    //     inner.delete();
+    // };
+
+    // const allBoundary = PathKit.NewPath();
+    // neighborhoods.features.forEach((feature) => {
+    //     if (feature.geometry.type === 'Polygon') {
+    //         feature.geometry.coordinates.forEach(addPoly);
+    //     } else {
+    //         feature.geometry.coordinates.forEach((paths) =>
+    //             paths.forEach(addPoly),
+    //         );
+    //     }
+    // });
+    // // allBoundary.simplify();
+    // // allBoundary.setFillType(PathKit.FillType.EVENODD);
+    // const boundaryPath = allBoundary.toSVGString();
+    // const expanded = allBoundary
+    //     .copy()
+    //     .stroke({ width: 20, join: PathKit.StrokeJoin.ROUND });
+    // allBoundary.op(expanded, PathKit.PathOp.UNION);
+    // expanded.delete();
+    // const expandedPath = allBoundary.toSVGString();
+    // allBoundary.delete();
+
     root.render(
         <App
             types={roads}
@@ -417,6 +605,12 @@ const run = async () => {
             places={placeTypes}
             font={font}
             headerFont={headerFont}
+            neighborhoods={neighborhoods}
+            waterways={waterways}
+            natural={natural}
+            // boundaryPath={boundaryPath}
+            // expandedPath={expandedPath}
+            // PathKit={PathKit}
         />,
     );
 };

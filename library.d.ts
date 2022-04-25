@@ -25,7 +25,7 @@ declare module 'pathkit-wasm' {
             cap?: Cap;
             miter_limit?: number;
         }): Path;
-        op(Path, PathOp): Path;
+        op(path: Path, op: PathOp): Path;
 
         addPath(other: Path, transform?: SVGMatrix): Path;
         addPath(
@@ -79,7 +79,28 @@ declare module 'pathkit-wasm' {
          * [Path2D.arcTo()](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/arcTo)
          * for more details.
          */
-        arcTo(x1: number, y1: number, x2: number, y2: number);
+        arcTo(
+            x1: number,
+            y1: number,
+            x2: number,
+            y2: number,
+            radius: number,
+        ): Path;
+
+        delete(): void;
+
+        ellipse(
+            x: number,
+            y: number,
+            radiusX: number,
+            radiusY: number,
+            rotation: number,
+            startAngle: number,
+            endAngle: number,
+            ccw = false,
+        ): Path;
+
+        dash(on: number, off: number, phase: number): Path;
 
         getFillType(): FillType;
         getFillTypeString(): CanvasFillRule;
@@ -123,6 +144,7 @@ declare module 'pathkit-wasm' {
     export type PathKit = {
         StrokeJoin: { [key in keyof typeof Join]: Join };
         PathOp: { [key in keyof typeof PathOp]: PathOp };
+        FillType: { [key in keyof typeof FillType]: FillType };
         /** Returns an empty `SkPath` object.  */
         NewPath(pathToCopy?: Path): Path;
 

@@ -19,6 +19,6 @@
     "type": "module",
     "scripts": {
         "roads": "yarn -s esbuild --bundle ok.ts --platform=node --external:shapefile --external:geojson --format=esm | node --input-type=module",
-        "start": "yarn esbuild --bundle src/run.tsx --servedir=. --serve=8002"
+        "start": "yarn esbuild --external:path --external:fs --bundle src/run.tsx --servedir=. --serve=8002"
     }
 }
