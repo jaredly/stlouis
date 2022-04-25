@@ -210,15 +210,26 @@ const App = ({
     const dx = bounds.x1 - bounds.x0;
     const dy = bounds.y1 - bounds.y0;
     const h = (dy / dx) * w;
+    const viewMargin = 10;
 
-    const backPos = ({ x, y }: Pos) => ({
-        x: (x / w) * dx + bounds.x0,
-        y: (1 - y / h) * dy + bounds.y0,
-    });
+    const [rotate, setRotate] = React.useState(false);
+    const rotW = rotate ? h : w;
+    const rotH = rotate ? w : h;
+
+    const fullWidth = (rotW + viewMargin * 2) / scaleDown;
+    const fullHeight = (rotH + viewMargin * 2) / scaleDown;
+
+    const backPos = ({ x, y }: Pos) => {
+        x = (x * w - viewMargin) / w;
+        y = ((1 - y) * h + viewMargin) / h;
+        x = x * dx + bounds.x0;
+        y = y * dy + bounds.y0;
+        return { x, y };
+    };
 
     const scalePos = ([x, y]: Position) => [
-        ((x - bounds.x0) / dx) * w,
-        (1 - (y - bounds.y0) / dy) * h,
+        ((x - bounds.x0) / dx) * (w + viewMargin * 2),
+        (1 - (y - bounds.y0) / dy) * (h + viewMargin * 2),
     ];
     const inBounds = ([x, y]: Position) =>
         bounds.x0 <= x && x <= bounds.x1 && bounds.y0 <= y && y <= bounds.y1;
@@ -236,7 +247,6 @@ const App = ({
     const ref = React.useRef(null as null | SVGSVGElement);
 
     const [url, setUrl] = React.useState(null as null | string);
-    const [rotate, setRotate] = React.useState(false);
     const posShow = pos ? scalePos([pos.x, pos.y]) : null;
 
     return (
@@ -294,14 +304,24 @@ const App = ({
                     </span>
                 </div>
                 <svg
-                    width={((rotate ? h : w) + 20) / scaleDown + 'mm'}
-                    height={((rotate ? w : h) + 20) / scaleDown + 'mm'}
-                    viewBox={`${-10} ${-10} ${(rotate ? h : w) + 20} ${
-                        (rotate ? w : h) + 20
-                    }`}
+                    width={fullWidth + 'mm'}
+                    height={fullHeight + 'mm'}
+                    style={{ outline: '1px solid magenta' }}
+                    viewBox={`${-viewMargin} ${-viewMargin} ${
+                        rotW + viewMargin * 2
+                    } ${rotH + viewMargin * 2}`}
                     xmlns={'http://www.w3.org/2000/svg'}
                     ref={(n) => {
                         ref.current = n;
+                    }}
+                    onMouseMove={(evt) => {
+                        const b = ref.current!.getBoundingClientRect();
+                        setPos(
+                            backPos({
+                                x: (evt.clientX - b.left) / b.width,
+                                y: (evt.clientY - b.top) / b.height,
+                            }),
+                        );
                     }}
                     onClick={(evt) => {
                         const b = ref.current!.getBoundingClientRect();
