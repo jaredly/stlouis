@@ -151,15 +151,12 @@ const App = ({
     font: opentype.Font;
     headerFont: opentype.Font;
 }) => {
-    // const [scale, setScale] = React.useState({ dx: 0, dy: 0, x: 1, y: 1 });
-    // const [moving, setMoving] = React.useState();
-    // const [selected, setSelected] = React.useState(null as null | string);
     const [selp, setSelp] = React.useState(null as null | string);
     const [pos, setPos] = React.useState(null as null | Pos);
     const [mini, setMini] = React.useState(false);
     const bounds = React.useMemo(() => {
-        const size = 4500;
         if (mini && pos) {
+            const size = 4900;
             return {
                 x0: pos.x - size,
                 y0: pos.y - size,
@@ -174,7 +171,7 @@ const App = ({
         return { x0, y0, x1, y1 };
     }, [boundary.bbox, mini ? pos : null]);
 
-    const w = mini && pos ? 150 : 550;
+    const w = mini && pos ? 140 : 519;
     const dx = bounds.x1 - bounds.x0;
     const dy = bounds.y1 - bounds.y0;
     const h = (dy / dx) * w;
@@ -255,8 +252,8 @@ const App = ({
                     </div>
                 </div>
                 <svg
-                    width={((rotate ? h : w) + 20) / 3 + 'mm'}
-                    height={((rotate ? w : h) + 20) / 3 + 'mm'}
+                    width={((rotate ? h : w) + 20) / 1 + 'mm'}
+                    height={((rotate ? w : h) + 20) / 1 + 'mm'}
                     viewBox={`${-10} ${-10} ${(rotate ? h : w) + 20} ${
                         (rotate ? w : h) + 20
                     }`}

@@ -47,7 +47,7 @@ export const RenderText = React.memo(
                     d={path}
                     fill="white"
                     stroke="white"
-                    strokeWidth={2}
+                    strokeWidth={4}
                     strokeLinejoin="round"
                     strokeLinecap="round"
                 />
