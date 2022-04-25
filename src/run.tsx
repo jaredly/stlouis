@@ -451,7 +451,7 @@ const App = ({
                                 backPos={backPos}
                                 inBounds={inBounds}
                                 centers={centers}
-                                selected={selected}
+                                selected={detail ? null : selected}
                                 setSelected={setSelected}
                             />
                         </g>
@@ -459,17 +459,18 @@ const App = ({
                             <ShowPlaces
                                 font={headerFont}
                                 selp={selp}
-                                places={places}
+                                places={neighborhoods}
                                 scalePos={scalePos}
                                 backPos={backPos}
                                 inBounds={inBounds}
-                                selected={selected}
+                                selected={detail ? null : selected}
                                 setSelected={setSelected}
                             />
                         </g>
                         <g>
                             {neighborhoods.features.map((feature, i) => {
                                 const isSelected =
+                                    !detail &&
                                     selected?.type === 'place' &&
                                     (selected.name ===
                                         feature.properties!.NHD_NAME ||

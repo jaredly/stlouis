@@ -1,11 +1,37 @@
 import * as React from 'react';
-import { Feature, Position, Point } from 'geojson';
+import {
+    Feature,
+    Position,
+    Point,
+    FeatureCollection,
+    Polygon,
+    MultiPolygon,
+} from 'geojson';
 import { useLocalStorage, empty, Pos, toStl, Selected } from './run';
 import { useDrag } from './useDrag';
 import { angleTo, RenderText } from './ShowNames';
 import { createRoot } from 'react-dom/client';
 
 const skip = []; //'Southhampton', 'Doctor Martin Luther King Drive'];
+
+const findMid = (geo: Polygon | MultiPolygon) => {
+    let x = 0;
+    let y = 0;
+    let n = 0;
+    const follow = (path: Position[]) => {
+        path.forEach(([a, b]) => {
+            x += a;
+            y += b;
+            n++;
+        });
+    };
+    if (geo.type === 'MultiPolygon') {
+        geo.coordinates.forEach((paths) => paths.forEach(follow));
+    } else {
+        geo.coordinates.forEach(follow);
+    }
+    return { x: x / n, y: y / n };
+};
 
 export const ShowPlaces = ({
     places,
@@ -21,7 +47,7 @@ export const ShowPlaces = ({
     font: opentype.Font;
     selp: string | null;
     scalePos: (pos: Position) => Position;
-    places: { [key: string]: Array<Feature<Point>> };
+    places: FeatureCollection<Polygon | MultiPolygon>;
     backPos: (pos: { clientX: number; clientY: number }) => Pos;
     selected: Selected | null;
     setSelected: React.Dispatch<React.SetStateAction<Selected | null>>;
@@ -116,87 +142,81 @@ export const ShowPlaces = ({
     const seen: { [key: string]: true } = {};
     return (
         <>
-            {Object.keys(places).map(
-                (p, pi) =>
-                    (!selp || selp === p) &&
-                    places[p].map((place, i) => {
-                        const stl = toStl.forward(place.geometry.coordinates);
-                        // if (!inBounds(stl)) {
-                        //     return;
-                        // }
-                        const name = place.properties!.name;
-                        const key = name;
-                        // if (skip.includes(name)) {
-                        //     return;
-                        // }
-                        // if (seen[name]) {
-                        //     return;
-                        // }
-                        seen[name] = true;
-                        const position =
-                            moving?.key === key &&
-                            moving?.moved &&
-                            !moving.extra
-                                ? moving.pos
-                                : offsets[key] ?? { x: stl[0], y: stl[1] };
-                        const [x, y] = scalePos([position.x, position.y]);
+            {places.features.map((neighborhood, i) => {
+                const stl = findMid(neighborhood.geometry);
+                // const stl = toStl.forward(place.geometry.coordinates);
+                if (!inBounds([stl.x, stl.y])) {
+                    return;
+                }
+                const name = neighborhood.properties!.NHD_NAME;
+                const key = name;
+                // if (skip.includes(name)) {
+                //     return;
+                // }
+                if (seen[name]) {
+                    return;
+                }
+                seen[name] = true;
+                const position =
+                    moving?.key === key && moving?.moved && !moving.extra
+                        ? moving.pos
+                        : offsets[key]?.x != null
+                        ? offsets[key]!
+                        : stl;
+                const [x, y] = scalePos([position.x, position.y]);
 
-                        let rotate =
-                            moving?.extra === 'rotate' &&
-                            moving?.key === key &&
-                            moving.moved
-                                ? -angleTo(moving.origin, moving.pos)
-                                : offsets[key]?.rotate ?? 0;
+                let rotate =
+                    moving?.extra === 'rotate' &&
+                    moving?.key === key &&
+                    moving.moved
+                        ? -angleTo(moving.origin, moving.pos)
+                        : offsets[key]?.rotate ?? 0;
 
-                        return (
-                            <g
-                                onMouseDown={(evt) => {
-                                    if (evt.button !== 0) {
-                                        console.log('button', evt.button);
-                                        return;
-                                    }
-                                    if (evt.altKey) {
-                                        console.log('editing', name);
-                                        setEditing(name);
-                                        return;
-                                    }
-                                    const pos = backPos(evt);
-                                    setMoving({
-                                        origin: pos,
-                                        pos,
-                                        key,
-                                        moved: false,
-                                        extra: evt.shiftKey
-                                            ? 'rotate'
-                                            : undefined,
-                                    });
-                                    setSelected({ type: 'place', name });
-                                }}
-                                data-name={name}
-                                key={pi + ':' + i}
-                                style={{
-                                    cursor: 'pointer',
-                                    userSelect: 'none',
-                                }}
-                                // transform={tx}
-                            >
-                                <RenderText
-                                    text={offsets[name]?.text ?? name}
-                                    x={x}
-                                    y={y}
-                                    fontSize={6}
-                                    bgColor={
-                                        selected?.type === 'place' &&
-                                        selected.name === name
-                                            ? 'green'
-                                            : 'white'
-                                    }
-                                    font={font}
-                                    transform={`rotate(${
-                                        (rotate / Math.PI) * 180
-                                    })`}
-                                />
-                                {/* <text
+                return (
+                    <g
+                        onMouseDown={(evt) => {
+                            if (evt.button !== 0) {
+                                console.log('button', evt.button);
+                                return;
+                            }
+                            if (evt.altKey) {
+                                console.log('editing', name);
+                                setEditing(name);
+                                return;
+                            }
+                            const pos = backPos(evt);
+                            setMoving({
+                                origin: pos,
+                                pos,
+                                key,
+                                moved: false,
+                                extra: evt.shiftKey ? 'rotate' : undefined,
+                            });
+                            setSelected({ type: 'place', name });
+                        }}
+                        data-name={name}
+                        key={name}
+                        style={{
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                        }}
+                        // transform={tx}
+                    >
+                        <RenderText
+                            text={offsets[name]?.text ?? name}
+                            x={x}
+                            y={y}
+                            fontSize={6}
+                            bgColor={
+                                selected?.type === 'place' &&
+                                selected.name === name
+                                    ? 'green'
+                                    : 'white'
+                            }
+                            font={font}
+                            transform={`rotate(${(rotate / Math.PI) * 180})`}
+                        />
+                        {/* <text
                                     x={x}
                                     y={y}
                                     style={{
@@ -226,10 +246,9 @@ export const ShowPlaces = ({
                                 >
                                     {place.properties!.name}
                                 </text> */}
-                            </g>
-                        );
-                    }),
-            )}
+                    </g>
+                );
+            })}
         </>
     );
 };
