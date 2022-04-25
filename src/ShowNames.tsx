@@ -30,12 +30,22 @@ export const RenderText = React.memo(
         fontSize: number;
         bgColor?: string;
     }) => {
-        const { path, w } = React.useMemo(() => {
-            const w = font.getAdvanceWidth(text, fontSize);
-            return {
-                w,
-                path: font.getPath(text, -w / 2, 0, fontSize).toPathData(3),
-            };
+        const path = React.useMemo(() => {
+            // let x = 0;
+            // text.split('\n').forEach((line) => {});
+            return text
+                .split('\n')
+                .map((line, i) =>
+                    font
+                        .getPath(
+                            line,
+                            -font.getAdvanceWidth(line, fontSize) / 2,
+                            i * fontSize,
+                            fontSize,
+                        )
+                        .toPathData(3),
+                )
+                .join(' ');
         }, [text, x, y, fontSize]);
         // transform-origin={`${x} ${y}`}>
         return (
@@ -155,6 +165,7 @@ export const ShowNames = ({
                     return (
                         <g
                             key={key}
+                            data-name={name}
                             onContextMenu={(evt) => {
                                 evt.preventDefault();
                                 setOffsets((off) => ({ ...off, [key]: null }));

@@ -3,8 +3,9 @@ import { Feature, Position, Point } from 'geojson';
 import { useLocalStorage, empty, Pos, toStl, Selected } from './run';
 import { useDrag } from './useDrag';
 import { angleTo, RenderText } from './ShowNames';
+import { createRoot } from 'react-dom/client';
 
-const skip = ['Southhampton', 'Doctor Martin Luther King Drive'];
+const skip = []; //'Southhampton', 'Doctor Martin Luther King Drive'];
 
 export const ShowPlaces = ({
     places,
@@ -33,6 +34,7 @@ export const ShowPlaces = ({
                 y: number;
                 rotate?: number;
                 scale?: number;
+                text?: string;
             };
         },
     );
@@ -55,6 +57,62 @@ export const ShowPlaces = ({
         });
     }, backPos);
 
+    const [editing, setEditing] = React.useState(null as null | string);
+
+    React.useEffect(() => {
+        if (!editing) return;
+        const b = document.createElement('div');
+        document.body.append(b);
+        const root = createRoot(b);
+        const Editor = () => {
+            const [text, setText] = React.useState(
+                offsets[editing]?.text ?? editing,
+            );
+            return (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: `rgba(0,0,0,0.2)`,
+                    }}
+                >
+                    <textarea
+                        onChange={(evt) => setText(evt.target.value)}
+                        value={text}
+                    />
+                    <button
+                        onClick={() => {
+                            setOffsets((off) => {
+                                const r = { ...off };
+                                r[editing] = {
+                                    ...r[editing]!,
+                                    text: text,
+                                };
+                                return r;
+                            });
+                            setEditing(null);
+                        }}
+                    >
+                        Save
+                    </button>
+                </div>
+            );
+        };
+        root.render(<Editor />);
+        return () => {
+            setTimeout(() => {
+                root.unmount();
+                b.remove();
+            }, 20);
+        };
+    }, [editing]);
+
     const seen: { [key: string]: true } = {};
     return (
         <>
@@ -63,17 +121,17 @@ export const ShowPlaces = ({
                     (!selp || selp === p) &&
                     places[p].map((place, i) => {
                         const stl = toStl.forward(place.geometry.coordinates);
-                        if (!inBounds(stl)) {
-                            return;
-                        }
+                        // if (!inBounds(stl)) {
+                        //     return;
+                        // }
                         const name = place.properties!.name;
                         const key = name;
-                        if (skip.includes(name)) {
-                            return;
-                        }
-                        if (seen[name]) {
-                            return;
-                        }
+                        // if (skip.includes(name)) {
+                        //     return;
+                        // }
+                        // if (seen[name]) {
+                        //     return;
+                        // }
                         seen[name] = true;
                         const position =
                             moving?.key === key &&
@@ -97,6 +155,11 @@ export const ShowPlaces = ({
                                         console.log('button', evt.button);
                                         return;
                                     }
+                                    if (evt.altKey) {
+                                        console.log('editing', name);
+                                        setEditing(name);
+                                        return;
+                                    }
                                     const pos = backPos(evt);
                                     setMoving({
                                         origin: pos,
@@ -109,6 +172,7 @@ export const ShowPlaces = ({
                                     });
                                     setSelected({ type: 'place', name });
                                 }}
+                                data-name={name}
                                 key={pi + ':' + i}
                                 style={{
                                     cursor: 'pointer',
@@ -117,7 +181,7 @@ export const ShowPlaces = ({
                                 // transform={tx}
                             >
                                 <RenderText
-                                    text={name}
+                                    text={offsets[name]?.text ?? name}
                                     x={x}
                                     y={y}
                                     fontSize={6}

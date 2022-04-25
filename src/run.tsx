@@ -422,7 +422,7 @@ const App = ({
                                                     selected.kind === k &&
                                                     selected.name ===
                                                         shape.properties!.name
-                                                        ? 'green'
+                                                        ? '#3f3'
                                                         : getColor(k)
                                                 }
                                                 strokeWidth={sizes[k] || 0.5}
@@ -605,6 +605,7 @@ const run = async () => {
             p as Feature<Point>,
         ]);
     });
+    // window.places = places;
     delete placeTypes['yes'];
     delete placeTypes['city'];
     delete placeTypes['island'];
