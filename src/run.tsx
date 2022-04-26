@@ -404,47 +404,42 @@ const App = ({
                                 ))}
                         </g>
                         <g>
-                            {false &&
-                                t.map(
-                                    (k, ti) =>
-                                        (detail || !roadColor[k]) &&
-                                        types[k].map((shape, i) =>
-                                            shape.geometry.coordinates
-                                                .map(toStl.forward)
-                                                .some(inBounds) ? (
-                                                <polyline
-                                                    fill="none"
-                                                    key={ti + ':' + i}
-                                                    data-type={k}
-                                                    stroke={
-                                                        selected?.type ===
-                                                            'road' &&
-                                                        selected.kind === k &&
-                                                        selected.name ===
-                                                            shape.properties!
-                                                                .name
-                                                            ? '#3f3'
-                                                            : getColor(k)
-                                                    }
-                                                    strokeWidth={
-                                                        sizes[k] || 0.5
-                                                    }
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    points={justWithinBounds(
-                                                        inBounds,
-                                                        (
-                                                            shape.geometry as LineString
-                                                        ).coordinates.map(
-                                                            toStl.forward,
-                                                        ),
-                                                    )
-                                                        .map(showPos)
-                                                        .join(' ')}
-                                                />
-                                            ) : null,
-                                        ),
-                                )}
+                            {t.map(
+                                (k, ti) =>
+                                    (detail || !roadColor[k]) &&
+                                    types[k].map((shape, i) =>
+                                        shape.geometry.coordinates
+                                            .map(toStl.forward)
+                                            .some(inBounds) ? (
+                                            <polyline
+                                                fill="none"
+                                                key={ti + ':' + i}
+                                                data-type={k}
+                                                stroke={
+                                                    selected?.type === 'road' &&
+                                                    selected.kind === k &&
+                                                    selected.name ===
+                                                        shape.properties!.name
+                                                        ? '#3f3'
+                                                        : getColor(k)
+                                                }
+                                                strokeWidth={sizes[k] || 0.5}
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                points={justWithinBounds(
+                                                    inBounds,
+                                                    (
+                                                        shape.geometry as LineString
+                                                    ).coordinates.map(
+                                                        toStl.forward,
+                                                    ),
+                                                )
+                                                    .map(showPos)
+                                                    .join(' ')}
+                                            />
+                                        ) : null,
+                                    ),
+                            )}
                         </g>
                         <g>
                             <ShowNames
@@ -775,8 +770,19 @@ export const CompileIt = ({
                 height={svg.current!.getAttribute('height')!}
                 viewBox={svg.current!.getAttribute('viewBox')!}
             >
-                {paths.map(({ path, color }) => (
-                    <path d={path} fill={color} />
+                {paths.map(({ path, color, stroke, transforms }) => (
+                    <path
+                        d={path}
+                        fill={stroke != null ? 'none' : color}
+                        stroke={stroke == null ? 'none' : color}
+                        strokeWidth={stroke}
+                        transform={transforms
+                            .map(
+                                ([[a, c, e], [b, d, f]]) =>
+                                    `matrix(${a} ${b} ${c} ${d} ${e} ${f})`,
+                            )
+                            .join(' ')}
+                    />
                 ))}
             </svg>
         </div>
