@@ -109,20 +109,14 @@ const roadColor: { [key: string]: string } = {
 };
 
 const getColor = (type: string) => roadColor[type] || '#222';
-// colors[type] || colors.others;
-// '#889';
-// '#556';
 
 const skip = [
-    // 'service',
     'footway',
     'pedestrian',
     'steps',
     'elevator',
     'living_street',
     'path',
-    // TODO: turn this off again
-    // 'residential',
 ];
 
 export type Centers = {
@@ -325,15 +319,6 @@ const App = ({
                     ref={(n) => {
                         ref.current = n;
                     }}
-                    // onMouseMove={(evt) => {
-                    //     const b = ref.current!.getBoundingClientRect();
-                    //     setPos(
-                    //         backPos({
-                    //             x: (evt.clientX - b.left) / b.width,
-                    //             y: (evt.clientY - b.top) / b.height,
-                    //         }),
-                    //     );
-                    // }}
                     onClick={(evt) => {
                         setPos(backPos(evt));
                     }}

@@ -50,6 +50,19 @@ declare module 'pathkit-wasm' {
             pers2: number,
         ): Path;
 
+        transform(matrix: SVGMatrix): Path;
+        transform(
+            scaleX: number,
+            skewX: number,
+            transX: number,
+            skewY: number,
+            scaleY: number,
+            transY: number,
+            pers0: number,
+            pers1: number,
+            pers2: number,
+        ): Path;
+
         /**
          * **x, y** - `Number`, The coordinates of the arc's center. <br> **radius** -
          * `Number`, The radius of the arc. <br> **startAngle, endAngle** - `Number`, the

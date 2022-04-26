@@ -144,15 +144,11 @@ export const ShowPlaces = ({
         <>
             {places.features.map((neighborhood, i) => {
                 const stl = findMid(neighborhood.geometry);
-                // const stl = toStl.forward(place.geometry.coordinates);
                 if (!inBounds([stl.x, stl.y])) {
                     return;
                 }
                 const name = neighborhood.properties!.NHD_NAME;
                 const key = name;
-                // if (skip.includes(name)) {
-                //     return;
-                // }
                 if (seen[name]) {
                     return;
                 }
