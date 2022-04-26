@@ -16,7 +16,8 @@ import proj4 from 'proj4';
 import { ShowNames } from './ShowNames';
 import { ShowPlaces } from './ShowPlaces';
 import opentype from 'opentype.js';
-import PathKitInit from 'pathkit-wasm';
+import PathKitInit, { PathKit } from 'pathkit-wasm';
+import { compileSvg } from './Compile';
 
 const stlProj =
     'PROJCS["NAD_1983_StatePlane_Missouri_East_FIPS_2401_Feet",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",820208.3333333333],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-90.5],PARAMETER["Scale_Factor",0.9999333333333333],PARAMETER["Latitude_Of_Origin",35.83333333333334],UNIT["Foot_US",0.3048006096012192]]';
@@ -171,7 +172,9 @@ const App = ({
     font,
     headerFont,
     natural,
+    PathKit,
 }: {
+    PathKit: PathKit;
     types: { [key: string]: Array<Feature<LineString>> };
     neighborhoods: FeatureCollection<Polygon | MultiPolygon>;
     waterways: FeatureCollection<LineString>;
@@ -254,6 +257,8 @@ const App = ({
     const [url, setUrl] = React.useState(null as null | string);
     const posShow = pos ? scalePos([pos.x, pos.y]) : null;
 
+    const [compile, setCompile] = React.useState(false);
+
     return (
         <div>
             <div style={{ padding: 24, outline: '1px solid magenta' }}>
@@ -263,6 +268,13 @@ const App = ({
                     }}
                 >
                     {detail ? 'Hide Detail' : 'Show Detail'}
+                </button>
+                <button
+                    onClick={() => {
+                        setCompile(!compile);
+                    }}
+                >
+                    {compile ? 'Hide Compile' : 'Compile'}
                 </button>
                 <button
                     onClick={() => {
@@ -308,6 +320,7 @@ const App = ({
                         {pos ? `${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}` : ''}
                     </span>
                 </div>
+                {compile ? <CompileIt svg={ref} PathKit={PathKit} /> : null}
                 <svg
                     width={fullWidth + 'mm'}
                     height={fullHeight + 'mm'}
@@ -391,42 +404,47 @@ const App = ({
                                 ))}
                         </g>
                         <g>
-                            {t.map(
-                                (k, ti) =>
-                                    (detail || !roadColor[k]) &&
-                                    types[k].map((shape, i) =>
-                                        shape.geometry.coordinates
-                                            .map(toStl.forward)
-                                            .some(inBounds) ? (
-                                            <polyline
-                                                fill="none"
-                                                key={ti + ':' + i}
-                                                data-type={k}
-                                                stroke={
-                                                    selected?.type === 'road' &&
-                                                    selected.kind === k &&
-                                                    selected.name ===
-                                                        shape.properties!.name
-                                                        ? '#3f3'
-                                                        : getColor(k)
-                                                }
-                                                strokeWidth={sizes[k] || 0.5}
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                points={justWithinBounds(
-                                                    inBounds,
-                                                    (
-                                                        shape.geometry as LineString
-                                                    ).coordinates.map(
-                                                        toStl.forward,
-                                                    ),
-                                                )
-                                                    .map(showPos)
-                                                    .join(' ')}
-                                            />
-                                        ) : null,
-                                    ),
-                            )}
+                            {false &&
+                                t.map(
+                                    (k, ti) =>
+                                        (detail || !roadColor[k]) &&
+                                        types[k].map((shape, i) =>
+                                            shape.geometry.coordinates
+                                                .map(toStl.forward)
+                                                .some(inBounds) ? (
+                                                <polyline
+                                                    fill="none"
+                                                    key={ti + ':' + i}
+                                                    data-type={k}
+                                                    stroke={
+                                                        selected?.type ===
+                                                            'road' &&
+                                                        selected.kind === k &&
+                                                        selected.name ===
+                                                            shape.properties!
+                                                                .name
+                                                            ? '#3f3'
+                                                            : getColor(k)
+                                                    }
+                                                    strokeWidth={
+                                                        sizes[k] || 0.5
+                                                    }
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    points={justWithinBounds(
+                                                        inBounds,
+                                                        (
+                                                            shape.geometry as LineString
+                                                        ).coordinates.map(
+                                                            toStl.forward,
+                                                        ),
+                                                    )
+                                                        .map(showPos)
+                                                        .join(' ')}
+                                                />
+                                            ) : null,
+                                        ),
+                                )}
                         </g>
                         <g>
                             <ShowNames
@@ -657,6 +675,7 @@ const run = async () => {
             places={placeTypes}
             font={font}
             headerFont={headerFont}
+            PathKit={PathKit}
             neighborhoods={neighborhoods}
             waterways={waterways}
             natural={natural}
@@ -738,3 +757,28 @@ function calculateCenters(types: {
     });
     return centers;
 }
+
+export const CompileIt = ({
+    svg,
+    PathKit,
+}: {
+    svg: React.MutableRefObject<SVGSVGElement | null>;
+    PathKit: PathKit;
+}) => {
+    const paths = React.useMemo(() => {
+        return compileSvg(svg.current!, PathKit);
+    }, []);
+    return (
+        <div>
+            <svg
+                width={svg.current!.getAttribute('width')!}
+                height={svg.current!.getAttribute('height')!}
+                viewBox={svg.current!.getAttribute('viewBox')!}
+            >
+                {paths.map(({ path, color }) => (
+                    <path d={path} fill={color} />
+                ))}
+            </svg>
+        </div>
+    );
+};
