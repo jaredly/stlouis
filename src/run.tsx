@@ -18,6 +18,7 @@ import { ShowPlaces } from './ShowPlaces';
 import opentype from 'opentype.js';
 import PathKitInit, { PathKit } from 'pathkit-wasm';
 import { compileSvg } from './Compile';
+import { Matrix } from './transforms';
 
 const stlProj =
     'PROJCS["NAD_1983_StatePlane_Missouri_East_FIPS_2401_Feet",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",820208.3333333333],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-90.5],PARAMETER["Scale_Factor",0.9999333333333333],PARAMETER["Latitude_Of_Origin",35.83333333333334],UNIT["Foot_US",0.3048006096012192]]';
@@ -404,42 +405,47 @@ const App = ({
                                 ))}
                         </g>
                         <g>
-                            {t.map(
-                                (k, ti) =>
-                                    (detail || !roadColor[k]) &&
-                                    types[k].map((shape, i) =>
-                                        shape.geometry.coordinates
-                                            .map(toStl.forward)
-                                            .some(inBounds) ? (
-                                            <polyline
-                                                fill="none"
-                                                key={ti + ':' + i}
-                                                data-type={k}
-                                                stroke={
-                                                    selected?.type === 'road' &&
-                                                    selected.kind === k &&
-                                                    selected.name ===
-                                                        shape.properties!.name
-                                                        ? '#3f3'
-                                                        : getColor(k)
-                                                }
-                                                strokeWidth={sizes[k] || 0.5}
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                points={justWithinBounds(
-                                                    inBounds,
-                                                    (
-                                                        shape.geometry as LineString
-                                                    ).coordinates.map(
-                                                        toStl.forward,
-                                                    ),
-                                                )
-                                                    .map(showPos)
-                                                    .join(' ')}
-                                            />
-                                        ) : null,
-                                    ),
-                            )}
+                            {false &&
+                                t.map(
+                                    (k, ti) =>
+                                        (detail || !roadColor[k]) &&
+                                        types[k].map((shape, i) =>
+                                            shape.geometry.coordinates
+                                                .map(toStl.forward)
+                                                .some(inBounds) ? (
+                                                <polyline
+                                                    fill="none"
+                                                    key={ti + ':' + i}
+                                                    data-type={k}
+                                                    stroke={
+                                                        selected?.type ===
+                                                            'road' &&
+                                                        selected.kind === k &&
+                                                        selected.name ===
+                                                            shape.properties!
+                                                                .name
+                                                            ? '#3f3'
+                                                            : getColor(k)
+                                                    }
+                                                    strokeWidth={
+                                                        sizes[k] || 0.5
+                                                    }
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    points={justWithinBounds(
+                                                        inBounds,
+                                                        (
+                                                            shape.geometry as LineString
+                                                        ).coordinates.map(
+                                                            toStl.forward,
+                                                        ),
+                                                    )
+                                                        .map(showPos)
+                                                        .join(' ')}
+                                                />
+                                            ) : null,
+                                        ),
+                                )}
                         </g>
                         <g>
                             <ShowNames
@@ -482,6 +488,9 @@ const App = ({
                                 return feature.geometry.type === 'Polygon' ? (
                                     <polygon
                                         data-name={feature.properties!.NHD_NAME}
+                                        data-piece={
+                                            feature.properties!.NHD_NAME
+                                        }
                                         points={feature.geometry.coordinates[0]
                                             .map(showPos)
                                             .join(' ')}
@@ -495,6 +504,9 @@ const App = ({
                                         coord.map((path, ii) => (
                                             <polygon
                                                 data-name={
+                                                    feature.properties!.NHD_NAME
+                                                }
+                                                data-piece={
                                                     feature.properties!.NHD_NAME
                                                 }
                                                 points={path
@@ -753,6 +765,9 @@ function calculateCenters(types: {
     return centers;
 }
 
+const matrixAttr = ([[a, c, e], [b, d, f]]: Matrix) =>
+    `matrix(${a} ${b} ${c} ${d} ${e} ${f})`;
+
 export const CompileIt = ({
     svg,
     PathKit,
@@ -760,7 +775,7 @@ export const CompileIt = ({
     svg: React.MutableRefObject<SVGSVGElement | null>;
     PathKit: PathKit;
 }) => {
-    const paths = React.useMemo(() => {
+    const { paths, pieces } = React.useMemo(() => {
         return compileSvg(svg.current!, PathKit);
     }, []);
     return (
@@ -776,12 +791,7 @@ export const CompileIt = ({
                         fill={stroke != null ? 'none' : color}
                         stroke={stroke == null ? 'none' : color}
                         strokeWidth={stroke}
-                        transform={transforms
-                            .map(
-                                ([[a, c, e], [b, d, f]]) =>
-                                    `matrix(${a} ${b} ${c} ${d} ${e} ${f})`,
-                            )
-                            .join(' ')}
+                        transform={transforms.map(matrixAttr).join(' ')}
                     />
                 ))}
             </svg>

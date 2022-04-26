@@ -81,16 +81,20 @@ const parseTransform = (transform: string): Array<Matrix> => {
 //           closed: boolean;
 //       };
 
+export type PathConfig = {
+    color: string;
+    stroke?: number;
+    path: string;
+    transforms: Array<Matrix>;
+};
+
 export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
     const start = Date.now();
+
     // NO clipping, I think
     // the result is a list of Path's? that you have to delete
-    let paths: Array<{
-        color: string;
-        stroke?: number;
-        path: string;
-        transforms: Array<Matrix>;
-    }> = [];
+    const paths: Array<PathConfig> = [];
+    const pieces: Array<PathConfig> = [];
 
     // const addPath = (path: PathConfig, color: string) => {
     //     if (paths.length && paths[paths.length - 1].color === color) {
@@ -156,6 +160,9 @@ export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
             if (node.nodeName === 'polygon') {
                 d += 'Z';
             }
+            if (node.hasAttribute('data-piece')) {
+                pieces.push({ color: 'black', path: d, transforms });
+            }
             addNode(d, node, transforms);
             // path.delete();
         } else {
@@ -168,10 +175,5 @@ export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
 
     console.log(paths);
 
-    return paths;
-    // return paths.map((item) => {
-    //     // const svg = item.path.toSVGString();
-    //     // item.path.delete();
-    //     return { path: item.path, color: item.color };
-    // });
+    return { paths, pieces };
 };
