@@ -17,7 +17,13 @@ import { ShowNames } from './ShowNames';
 import { ShowPlaces } from './ShowPlaces';
 import opentype from 'opentype.js';
 import PathKitInit, { Path, PathKit } from 'pathkit-wasm';
-import { Matrix, rotationMatrix, translationMatrix } from './transforms';
+import {
+    applyMatrices,
+    Matrix,
+    rotationMatrix,
+    translationMatrix,
+} from './transforms';
+import { Pos } from './run';
 
 // export const compileMap = ({
 //     types,
@@ -86,7 +92,9 @@ export type PathConfig = {
     stroke?: number;
     path: string;
     transforms: Array<Matrix>;
+    bbox?: BBox;
 };
+type BBox = { x0: number; y0: number; x1: number; y1: number };
 
 export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
     const start = Date.now();
@@ -109,18 +117,25 @@ export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
         path: string,
         node: SVGElement,
         transforms: Array<Matrix>,
+        bbox?: BBox,
     ) => {
         const fill = node.getAttribute('fill');
         const stroke = node.getAttribute('stroke');
         if (fill && fill != 'none') {
-            paths.push({ color: fill, path, transforms });
+            paths.push({ color: fill, path, transforms, bbox });
             // addPath(path, fill);
         }
         if (stroke && stroke != 'none') {
             const w = node.getAttribute('stroke-width');
             // path.stroke({ width: w ? +w : 1, join: PathKit.StrokeJoin.ROUND });
             // addPath({ ...path, stroke: w ? +w : 1 }, stroke);
-            paths.push({ path, stroke: w ? +w : 1, color: stroke, transforms });
+            paths.push({
+                path,
+                stroke: w ? +w : 1,
+                color: stroke,
+                transforms,
+                bbox,
+            });
         }
     };
 
@@ -129,51 +144,70 @@ export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
             transforms = transforms.concat(
                 parseTransform(node.getAttribute('transform')!),
             );
-            // TODO:
-            // parse the trhansform attribute into an array of matrices.
         }
         if (node.nodeName === 'g') {
             node.childNodes.forEach((child) => {
                 processNode(child as SVGElement, transforms);
             });
         } else if (node.nodeName === 'path') {
-            // const path = PathKit.FromSVGString(node.getAttribute('d')!);
-            addNode(node.getAttribute('d')!, node, transforms);
-            // path.delete();
+            // TODO: Parse these for bounding box points
+            const d = node.getAttribute('d')!;
+            const initial = d.match(/M(-?\d+(\.\d+)?\s*){2}/);
+            let bbox;
+            if (initial) {
+                const first = initial[0].match(/M-?\d+(\.\d+)?/)!;
+                const rest = initial[0].slice(first[0].length);
+                const x = +first[0].slice(1);
+                const y = +rest;
+                const tx = applyMatrices({ x, y }, transforms);
+                bbox = { x0: tx.x, y0: tx.y, x1: tx.x, y1: tx.y };
+            }
+            // console.log(initial);
+            addNode(d, node, transforms, bbox);
         } else if (
             node.nodeName === 'polyline' ||
             node.nodeName === 'polygon'
         ) {
-            // const path = PathKit.NewPath();
             const numbers = node
                 .getAttribute('points')!
                 .split(/[, ]/g)
                 .map((x) => +x);
-            // path.moveTo(numbers[0], numbers[1]);
             let d = `M${numbers[0]},${numbers[1]}`;
-            const points: Array<[number, number]> = [];
+            const points: Array<Pos> = [{ x: numbers[0], y: numbers[1] }];
             for (let i = 2; i < numbers.length; i += 2) {
                 d += ` L${numbers[i]},${numbers[i + 1]}`;
-                // points.push([numbers[i], numbers[i + 1]]);
-                // path.lineTo(numbers[i], numbers[i + 1]);
+                points.push({ x: numbers[i], y: numbers[i + 1] });
             }
+            const bbox = {
+                x0: Infinity,
+                y0: Infinity,
+                x1: -Infinity,
+                y1: -Infinity,
+            };
+            points
+                .map((pos) => applyMatrices(pos, transforms))
+                .forEach(({ x, y }) => {
+                    bbox.x0 = Math.min(bbox.x0, x);
+                    bbox.x0 = Math.min(bbox.y0, y);
+                    bbox.x1 = Math.max(bbox.x1, x);
+                    bbox.y1 = Math.max(bbox.y1, y);
+                });
             if (node.nodeName === 'polygon') {
                 d += 'Z';
             }
             if (node.hasAttribute('data-piece')) {
-                pieces.push({ color: 'black', path: d, transforms });
+                pieces.push({ color: 'black', path: d, transforms, bbox });
             }
-            addNode(d, node, transforms);
-            // path.delete();
+            addNode(d, node, transforms, bbox);
         } else {
-            console.log('skipping', node.nodeName);
+            // console.log('skipping', node.nodeName);
         }
     };
 
     svg.childNodes.forEach((child) => processNode(child as SVGElement, []));
     console.log('took', Date.now() - start);
 
-    console.log(paths);
+    console.log(pieces);
 
     return { paths, pieces };
 };
