@@ -437,15 +437,15 @@ const waterSize = {
     weir: 1,
 };
 const roadColor: { [key: string]: string } = {
-    residential: '#888',
-    others: '#888',
-    unclassified: '#888',
-    cycleway: '#888',
-    service: '#bbb',
-    track: '#bbb',
-    construction: '#bbb',
+    residential: '#222',
+    others: '#222',
+    unclassified: '#444',
+    cycleway: '#444',
+    service: '#888',
+    track: '#888',
+    construction: '#888',
 };
-const getColor = (type: string) => roadColor[type] || '#222';
+const getColor = (type: string) => roadColor[type] || '#000';
 const skip = [
     'footway',
     'pedestrian',

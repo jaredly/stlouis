@@ -21,7 +21,7 @@ export const PuzzlePieces = ({
     PathKit: PathKit;
 }) => {
     const { paths, pieces } = React.useMemo(() => {
-        return compileSvg(svg.current!, PathKit, 1);
+        return compileSvg(svg.current!, PathKit, 0.2);
     }, []);
     const psvg = React.useRef(null as null | SVGSVGElement);
     const [positions, setPositions] = useLocalStorage(
@@ -34,10 +34,6 @@ export const PuzzlePieces = ({
             x: ((evt.clientX - box.left) / box.width) * width,
             y: ((evt.clientY - box.top) / box.height) * height,
         };
-        // console.log('ok', pos);
-        // const ok = { x: pos.x, y: pos.y };
-        // console.log('yes', ok);
-        // return ok;
         return pos;
     };
     const [moving, setMoving] = useDrag(
