@@ -1,22 +1,4 @@
-import * as React from 'react';
-import { createRoot } from 'react-dom/client';
-import * as shapefile from 'shapefile';
-import {
-    Feature,
-    LineString,
-    Polygon,
-    MultiPolygon,
-    Position,
-    FeatureCollection,
-    Point,
-    Geometry,
-    GeoJsonProperties,
-} from 'geojson';
-import proj4 from 'proj4';
-import { ShowNames } from './ShowNames';
-import { ShowPlaces } from './ShowPlaces';
-import opentype from 'opentype.js';
-import PathKitInit, { Path, PathKit } from 'pathkit-wasm';
+import { PathKit } from 'pathkit-wasm';
 import {
     applyMatrices,
     Matrix,
@@ -24,26 +6,6 @@ import {
     translationMatrix,
 } from './transforms';
 import { Pos } from './run';
-
-// export const compileMap = ({
-//     types,
-//     boundary,
-//     places,
-//     neighborhoods,
-//     font,
-//     headerFont,
-//     natural,
-// }: {
-// 	types: { [key: string]: Array<Feature<LineString>> };
-//     neighborhoods: FeatureCollection<Polygon | MultiPolygon>;
-//     waterways: FeatureCollection<LineString>;
-//     boundary: FeatureCollection;
-//     natural: FeatureCollection<Polygon>;
-//     places: { [key: string]: Array<Feature<Point>> };
-//     font: opentype.Font;
-//     headerFont: opentype.Font;
-// }) => {
-// }
 
 const toNum = (n: string) => {
     const v = +n;
@@ -56,7 +18,6 @@ const toNum = (n: string) => {
 const parseTransform = (transform: string): Array<Matrix> => {
     const result: Array<Matrix> = [];
     const parts = transform.split(/[(,)\s]/g).filter((t) => t.trim());
-    // console.log(parts);
     while (parts.length) {
         const next = parts.shift();
         switch (next) {
@@ -78,14 +39,6 @@ const parseTransform = (transform: string): Array<Matrix> => {
     }
     return result;
 };
-
-// type PathConfig =
-//     | { type: 'd'; d: string}
-//     | {
-//           type: 'points';
-//           points: Array<[number, number]>;
-//           closed: boolean;
-//       };
 
 export type PathConfig = {
     color: string;
@@ -220,7 +173,20 @@ export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
                 d += 'Z';
             }
             if (node.hasAttribute('data-piece')) {
-                pieces.push({ color: 'black', path: d, transforms, bbox });
+                const path = PathKit.FromSVGString(d);
+                transforms.forEach(([[a, b, c], [d, e, f]]) => {
+                    path.transform(a, b, c, d, e, f, 0, 0, 1);
+                });
+                const ns = path.copy().stroke({ width: 5 });
+                path.op(ns, PathKit.PathOp.UNION);
+                ns.delete();
+
+                pieces.push({
+                    color: 'black',
+                    path: path.toSVGString(),
+                    transforms: [],
+                    bbox,
+                });
             }
             addNode(d, node, transforms, bbox);
         } else {
