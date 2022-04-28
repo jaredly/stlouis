@@ -1,15 +1,15 @@
 import * as React from 'react';
 import { Feature, LineString, Position } from 'geojson';
+import { empty } from './run';
 import {
     Centers,
     useLocalStorage,
-    empty,
     Pos,
     labeled,
     toStl,
     fontSizes,
     Selected,
-} from './run';
+} from './App';
 import { useDrag } from './useDrag';
 
 export const RenderText = React.memo(

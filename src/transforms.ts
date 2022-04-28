@@ -1,4 +1,4 @@
-import { Pos } from './run';
+import { Pos } from './App';
 
 export type Matrix = [[number, number, number], [number, number, number]];
 

@@ -5,7 +5,7 @@ import {
     rotationMatrix,
     translationMatrix,
 } from './transforms';
-import { Pos } from './run';
+import { Pos } from './App';
 
 const toNum = (n: string) => {
     const v = +n;
@@ -78,15 +78,6 @@ export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
     const paths: Array<PathConfig> = [];
     const pieces: Array<PathConfig> = [];
 
-    // const addPath = (path: PathConfig, color: string) => {
-    //     if (paths.length && paths[paths.length - 1].color === color) {
-    //         paths[paths.length - 1].path.push(path);
-    //         // paths[paths.length - 1].path.op(path, PathKit.PathOp.UNION);
-    //     } else {
-    //         paths.push({ path: [path], color });
-    //     }
-    // };
-
     const addNode = (
         path: string,
         node: SVGElement,
@@ -97,12 +88,9 @@ export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
         const stroke = node.getAttribute('stroke');
         if (fill && fill != 'none') {
             paths.push({ color: fill, path, transforms, bbox });
-            // addPath(path, fill);
         }
         if (stroke && stroke != 'none') {
             const w = node.getAttribute('stroke-width');
-            // path.stroke({ width: w ? +w : 1, join: PathKit.StrokeJoin.ROUND });
-            // addPath({ ...path, stroke: w ? +w : 1 }, stroke);
             paths.push({
                 path,
                 stroke: w ? +w : 1,

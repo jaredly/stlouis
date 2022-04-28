@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Pos } from './run';
+import { Pos } from './App';
 
 export type MoveState = {
     pos: Pos;

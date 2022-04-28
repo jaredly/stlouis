@@ -7,7 +7,8 @@ import {
     Polygon,
     MultiPolygon,
 } from 'geojson';
-import { useLocalStorage, empty, Pos, toStl, Selected } from './run';
+import { empty } from './run';
+import { useLocalStorage, Pos, toStl, Selected } from './App';
 import { useDrag } from './useDrag';
 import { angleTo, RenderText } from './ShowNames';
 import { createRoot } from 'react-dom/client';
