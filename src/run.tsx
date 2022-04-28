@@ -307,7 +307,11 @@ const App = ({
                     ) : (
                         <button
                             onClick={() => {
-                                let contents = ref.current!.outerHTML;
+                                let contents =
+                                    ref.current!.outerHTML +
+                                    `<!-- STATE\n` +
+                                    JSON.stringify(localStorage) +
+                                    '\n-->';
                                 const blob = new Blob([contents], {
                                     type: 'image/svg+xml',
                                 });
@@ -405,7 +409,8 @@ const App = ({
                                 ))}
                         </g>
                         <g>
-                            {false &&
+                            {
+                                //false &&
                                 t.map(
                                     (k, ti) =>
                                         (detail || !roadColor[k]) &&
@@ -445,7 +450,8 @@ const App = ({
                                                 />
                                             ) : null,
                                         ),
-                                )}
+                                )
+                            }
                         </g>
                         <g>
                             <ShowNames
