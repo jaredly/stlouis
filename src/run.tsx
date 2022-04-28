@@ -17,7 +17,7 @@ import { ShowNames } from './ShowNames';
 import { ShowPlaces } from './ShowPlaces';
 import opentype from 'opentype.js';
 import PathKitInit, { PathKit } from 'pathkit-wasm';
-import { compileSvg } from './Compile';
+import { bboxIntersect, compileSvg } from './Compile';
 import { Matrix } from './transforms';
 
 const stlProj =
@@ -784,6 +784,8 @@ export const CompileIt = ({
     const { paths, pieces } = React.useMemo(() => {
         return compileSvg(svg.current!, PathKit);
     }, []);
+    console.log(pieces[1].bbox);
+    console.log(paths.slice(10));
     return (
         <div>
             <svg
@@ -791,15 +793,56 @@ export const CompileIt = ({
                 height={svg.current!.getAttribute('height')!}
                 viewBox={svg.current!.getAttribute('viewBox')!}
             >
-                {paths.map(({ path, color, stroke, transforms }) => (
-                    <path
-                        d={path}
-                        fill={stroke != null ? 'none' : color}
-                        stroke={stroke == null ? 'none' : color}
-                        strokeWidth={stroke}
-                        transform={transforms.map(matrixAttr).join(' ')}
-                    />
+                {pieces.map((piece, i) => (
+                    <clipPath id={`piece-${i}`} key={i}>
+                        <path
+                            d={piece.path}
+                            transform={piece.transforms
+                                .map(matrixAttr)
+                                .join(' ')}
+                        />
+                    </clipPath>
                 ))}
+                {pieces.map((piece, i) => {
+                    const cx = (piece.bbox!.x1 + piece.bbox!.x0) / 2;
+                    const cy = (piece.bbox!.y1 + piece.bbox!.y0) / 2;
+                    return (
+                        <g
+                            transform={`translate(${cx / 10},${cy / 10})`}
+                            clipPath={`url(#piece-${i})`}
+                            key={i}
+                        >
+                            {paths
+                                .filter((path) =>
+                                    bboxIntersect(path.bbox!, piece.bbox!),
+                                )
+                                .map(({ path, color, stroke, transforms }) => (
+                                    <path
+                                        d={path}
+                                        fill={stroke != null ? 'none' : color}
+                                        stroke={stroke == null ? 'none' : color}
+                                        strokeWidth={stroke}
+                                        transform={transforms
+                                            .map(matrixAttr)
+                                            .join(' ')}
+                                    />
+                                ))}
+                        </g>
+                    );
+                })}
+                {/* {paths
+                    .filter((path) =>
+                        bboxIntersect(path.bbox!, pieces[0].bbox!),
+                    )
+                    .map(({ path, color, stroke, transforms }) => (
+                        <path
+                            d={path}
+                            fill={stroke != null ? 'none' : color}
+                            stroke={stroke == null ? 'none' : color}
+                            strokeWidth={stroke}
+                            transform={transforms.map(matrixAttr).join(' ')}
+                        />
+                    ))} */}
             </svg>
         </div>
     );

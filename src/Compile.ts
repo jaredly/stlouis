@@ -96,6 +96,27 @@ export type PathConfig = {
 };
 type BBox = { x0: number; y0: number; x1: number; y1: number };
 
+export const bboxOneDimentionalOverlap = (
+    x0: number,
+    x1: number,
+    a0: number,
+    a1: number,
+) => {
+    return (
+        (x0 <= a0 && a0 <= x1) ||
+        (x0 <= a1 && a1 <= x1) ||
+        (a0 <= x0 && x0 <= a1) ||
+        (a0 <= x1 && x1 <= a1)
+    );
+};
+
+export const bboxIntersect = (one: BBox, two: BBox) => {
+    return (
+        bboxOneDimentionalOverlap(one.x0, one.x1, two.x0, two.x1) &&
+        bboxOneDimentionalOverlap(one.y0, one.y1, two.y0, two.y1)
+    );
+};
+
 export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
     const start = Date.now();
 
@@ -159,7 +180,10 @@ export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
                 const rest = initial[0].slice(first[0].length);
                 const x = +first[0].slice(1);
                 const y = +rest;
-                const tx = applyMatrices({ x, y }, transforms);
+                const tx = applyMatrices(
+                    { x, y },
+                    transforms.slice().reverse(),
+                );
                 bbox = { x0: tx.x, y0: tx.y, x1: tx.x, y1: tx.y };
             }
             // console.log(initial);
@@ -188,7 +212,7 @@ export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
                 .map((pos) => applyMatrices(pos, transforms))
                 .forEach(({ x, y }) => {
                     bbox.x0 = Math.min(bbox.x0, x);
-                    bbox.x0 = Math.min(bbox.y0, y);
+                    bbox.y0 = Math.min(bbox.y0, y);
                     bbox.x1 = Math.max(bbox.x1, x);
                     bbox.y1 = Math.max(bbox.y1, y);
                 });
