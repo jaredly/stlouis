@@ -5,6 +5,7 @@ import { Matrix } from './transforms';
 import { useDrag } from './useDrag';
 import { useLocalStorage } from './App';
 import { angleTo } from './ShowNames';
+import { Download } from './Export';
 
 const empty: { [key: string]: { x: number; y: number; rotate: number } } = {};
 
@@ -70,6 +71,7 @@ export const PuzzlePieces = ({
                 justifyContent: 'center',
             }}
         >
+            <Download name={`puzzle.svg`} svg={psvg} />
             <svg
                 ref={psvg}
                 style={{ outline: '1px solid magenta' }}

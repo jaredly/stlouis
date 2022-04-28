@@ -15,6 +15,7 @@ import opentype from 'opentype.js';
 import { PathKit } from 'pathkit-wasm';
 import { PuzzlePieces } from './PuzzlePieces';
 import { calculateCenters } from './calculateCenters';
+import { Download } from './Export';
 
 export const App = ({
     types,
@@ -143,35 +144,12 @@ export const App = ({
                     {mini ? 'Mini' : 'Full'}
                 </button>
                 <div>
-                    {url ? (
-                        <a
-                            href={url}
-                            download={`map-${mini ? 'mini' : 'full'}-${
-                                rotate ? 'rotate' : 'straight'
-                            }.svg`}
-                            onClick={() => {
-                                setTimeout(() => setUrl(null), 50);
-                            }}
-                        >
-                            Download map.svg
-                        </a>
-                    ) : (
-                        <button
-                            onClick={() => {
-                                let contents =
-                                    ref.current!.outerHTML +
-                                    `<!-- STATE\n` +
-                                    JSON.stringify(localStorage) +
-                                    '\n-->';
-                                const blob = new Blob([contents], {
-                                    type: 'image/svg+xml',
-                                });
-                                setUrl(URL.createObjectURL(blob));
-                            }}
-                        >
-                            Download
-                        </button>
-                    )}
+                    <Download
+                        name={`map-${mini ? 'mini' : 'full'}-${
+                            rotate ? 'rotate' : 'straight'
+                        }.svg`}
+                        svg={ref}
+                    />
                     <span>
                         {pos ? `${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}` : ''}
                     </span>
