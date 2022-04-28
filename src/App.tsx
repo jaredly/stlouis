@@ -176,7 +176,14 @@ export const App = ({
                         {pos ? `${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}` : ''}
                     </span>
                 </div>
-                {compile ? <PuzzlePieces svg={ref} PathKit={PathKit} /> : null}
+                {compile ? (
+                    <PuzzlePieces
+                        svg={ref}
+                        PathKit={PathKit}
+                        width={w}
+                        height={h}
+                    />
+                ) : null}
                 <svg
                     width={fullWidth + 'mm'}
                     height={fullHeight + 'mm'}

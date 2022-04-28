@@ -70,7 +70,11 @@ export const bboxIntersect = (one: BBox, two: BBox) => {
     );
 };
 
-export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
+export const compileSvg = (
+    svg: SVGSVGElement,
+    PathKit: PathKit,
+    margin: number,
+) => {
     const start = Date.now();
 
     // NO clipping, I think
@@ -165,7 +169,7 @@ export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
                 transforms.forEach(([[a, b, c], [d, e, f]]) => {
                     path.transform(a, b, c, d, e, f, 0, 0, 1);
                 });
-                const ns = path.copy().stroke({ width: 5 });
+                const ns = path.copy().stroke({ width: margin });
                 path.op(ns, PathKit.PathOp.UNION);
                 ns.delete();
 
@@ -175,8 +179,9 @@ export const compileSvg = (svg: SVGSVGElement, PathKit: PathKit) => {
                     transforms: [],
                     bbox,
                 });
+            } else {
+                addNode(d, node, transforms, bbox);
             }
-            addNode(d, node, transforms, bbox);
         } else {
             // console.log('skipping', node.nodeName);
         }

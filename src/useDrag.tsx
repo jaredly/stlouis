@@ -9,7 +9,7 @@ export type MoveState = {
     extra?: string;
 };
 
-const minDist = 200;
+// const minDist = 200;
 
 const dist = (a: Pos, b: Pos) => {
     const dx = a.x - b.x;
@@ -20,6 +20,7 @@ const dist = (a: Pos, b: Pos) => {
 export const useDrag = (
     onDrop: (state: MoveState) => void,
     backPos: (evt: { clientX: number; clientY: number }) => Pos,
+    minDist = 200,
 ): [null | MoveState, (v: null | MoveState) => void] => {
     const [moving, setMoving] = React.useState(null as null | MoveState);
     React.useEffect(() => {
