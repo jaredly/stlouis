@@ -21,7 +21,7 @@ export const PuzzlePieces = ({
     PathKit: PathKit;
 }) => {
     const { paths, pieces } = React.useMemo(() => {
-        return compileSvg(svg.current!, PathKit, 0.2);
+        return compileSvg(svg.current!, PathKit, 0.1);
     }, []);
     const psvg = React.useRef(null as null | SVGSVGElement);
     const [positions, setPositions] = useLocalStorage(
@@ -71,8 +71,8 @@ export const PuzzlePieces = ({
             <svg
                 ref={psvg}
                 style={{ outline: '1px solid magenta' }}
-                width={width / 3 + 'mm'}
-                height={height / 3 + 'mm'}
+                width={width / 1.5 + 'mm'}
+                height={height / 1.5 + 'mm'}
                 viewBox={`0 0 ${width} ${height}`}
             >
                 {pieces.map((piece, i) => (
