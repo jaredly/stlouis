@@ -74,6 +74,7 @@ export const PuzzlePieces = ({
                 width={width / 1.5 + 'mm'}
                 height={height / 1.5 + 'mm'}
                 viewBox={`0 0 ${width} ${height}`}
+                xmlns="http://www.w3.org/2000/svg"
             >
                 {pieces.map((piece, i) => (
                     <clipPath id={`piece-${i}`} key={i}>
