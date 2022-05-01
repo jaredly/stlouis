@@ -1,4 +1,10 @@
 
+Grid tests
+- 16% 100mm/s
+- 12% 100mm/s
+- 14% 200mm/s
+- 18% 200mm/s
+
 
 Focusing!
 2.5cm at bottom of the bottom?

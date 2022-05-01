@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { PathKit } from 'pathkit-wasm';
-import { bboxIntersect, compileSvg } from './Compile';
+import { BBox, bboxIntersect, compileSvg } from './Compile';
 import { Matrix } from './transforms';
 import { useDrag } from './useDrag';
 import { useLocalStorage } from './App';
@@ -21,7 +21,7 @@ export const PuzzlePieces = ({
     PathKit: PathKit;
 }) => {
     const { paths, pieces } = React.useMemo(() => {
-        return compileSvg(svg.current!, PathKit, 0.1);
+        return compileSvg(svg.current!, PathKit, 0);
     }, []);
     const psvg = React.useRef(null as null | SVGSVGElement);
     const [positions, setPositions] = useLocalStorage(
@@ -36,9 +36,46 @@ export const PuzzlePieces = ({
         };
         return pos;
     };
+    const [selection, setSelection] = React.useState(
+        null as null | Array<number>,
+    );
     const [moving, setMoving] = useDrag(
         (moving) => {
             if (!moving.moved) {
+                return;
+            }
+            if (moving.extra === 'select') {
+                const bbox: BBox = {
+                    x0: Math.min(moving.origin.x, moving.pos.x),
+                    y0: Math.min(moving.origin.y, moving.pos.y),
+                    x1: Math.max(moving.origin.x, moving.pos.x),
+                    y1: Math.max(moving.origin.y, moving.pos.y),
+                };
+                setSelection(
+                    pieces
+                        .map((piece, i) => {
+                            const key = `piece-${i}`;
+                            const x = (piece.bbox!.x1 + piece.bbox!.x0) / 2;
+                            const y = (piece.bbox!.y1 + piece.bbox!.y0) / 2;
+                            let cx = x * 1.2;
+                            let cy = y * 1.2;
+                            if (cx > width) cx -= width;
+                            if (cy > height) cy -= height;
+                            const pos = positions[key] ?? { x: cx, y: cy };
+                            const w = Math.abs(piece.bbox!.x1 - piece.bbox!.x0);
+                            const h = Math.abs(piece.bbox!.y1 - piece.bbox!.y0);
+
+                            return bboxIntersect(bbox, {
+                                x0: pos.x - 10,
+                                x1: pos.x + 10,
+                                y0: pos.y - 10,
+                                y1: pos.y + 10,
+                            })
+                                ? i
+                                : null;
+                        })
+                        .filter(Boolean) as Array<number>,
+                );
                 return;
             }
             setPositions((pos) => {
@@ -58,6 +95,7 @@ export const PuzzlePieces = ({
         backPos,
         5,
     );
+    const scale = 1 / 1.5;
     return (
         <div
             style={{
@@ -71,11 +109,29 @@ export const PuzzlePieces = ({
             <svg
                 ref={psvg}
                 style={{ outline: '1px solid magenta' }}
-                width={width / 1.5 + 'mm'}
-                height={height / 1.5 + 'mm'}
+                width={width * scale + 'mm'}
+                height={height * scale + 'mm'}
                 viewBox={`0 0 ${width} ${height}`}
                 xmlns="http://www.w3.org/2000/svg"
+                onMouseDown={(evt) => {
+                    const pos = backPos(evt);
+                    setMoving({
+                        origin: pos,
+                        pos,
+                        key: `select`,
+                        moved: false,
+                        extra: 'select',
+                    });
+                }}
             >
+                {moving?.extra === 'select' ? (
+                    <rect
+                        x={Math.min(moving.pos.x, moving.origin.x)}
+                        y={Math.min(moving.pos.y, moving.origin.y)}
+                        width={Math.abs(moving.pos.x - moving.origin.x)}
+                        height={Math.abs(moving.pos.y - moving.origin.y)}
+                    />
+                ) : null}
                 {pieces.map((piece, i) => (
                     <clipPath id={`piece-${i}`} key={i}>
                         <path
@@ -86,6 +142,33 @@ export const PuzzlePieces = ({
                         />
                     </clipPath>
                 ))}
+                <rect
+                    x={0}
+                    y={0}
+                    width={300 / scale}
+                    height={200 / scale}
+                    fill="none"
+                    stroke="black"
+                    strokeWidth={2}
+                />
+                <rect
+                    x={0}
+                    y={200 / scale + 10}
+                    width={300 / scale}
+                    height={200 / scale}
+                    fill="none"
+                    stroke="black"
+                    strokeWidth={2}
+                />
+                <rect
+                    x={0}
+                    y={400 / scale + 20}
+                    width={300 / scale}
+                    height={200 / scale}
+                    fill="none"
+                    stroke="black"
+                    strokeWidth={2}
+                />
                 {pieces.map((piece, i) => {
                     const key = `piece-${i}`;
                     const x = (piece.bbox!.x1 + piece.bbox!.x0) / 2;
@@ -98,7 +181,7 @@ export const PuzzlePieces = ({
                     const pos =
                         moving?.key === key && !moving.extra && moving.moved
                             ? moving.pos
-                            : positions[key];
+                            : positions[key] ?? { x: cx, y: cy };
 
                     const rotate =
                         moving?.extra === 'rotate' &&
@@ -117,8 +200,10 @@ export const PuzzlePieces = ({
                                 if (evt.button !== 0) {
                                     return;
                                 }
+                                evt.stopPropagation();
+                                const pos = backPos(evt);
                                 setMoving({
-                                    origin: backPos(evt),
+                                    origin: pos,
                                     pos,
                                     key: `piece-${i}`,
                                     moved: false,
@@ -134,7 +219,9 @@ export const PuzzlePieces = ({
                                 <path
                                     d={piece.path}
                                     // fill="rgba(0,0,0,0.1)"
-                                    fill="white"
+                                    fill={
+                                        selection?.includes(i) ? 'red' : 'white'
+                                    }
                                     stroke="red"
                                     strokeWidth={1}
                                     transform={
@@ -156,13 +243,17 @@ export const PuzzlePieces = ({
                                             ),
                                         )
                                         .map(
-                                            ({
-                                                path,
-                                                color,
-                                                stroke,
-                                                transforms,
-                                            }) => (
+                                            (
+                                                {
+                                                    path,
+                                                    color,
+                                                    stroke,
+                                                    transforms,
+                                                },
+                                                j,
+                                            ) => (
                                                 <path
+                                                    key={j}
                                                     d={path}
                                                     fill={
                                                         stroke != null

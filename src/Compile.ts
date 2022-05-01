@@ -47,7 +47,7 @@ export type PathConfig = {
     transforms: Array<Matrix>;
     bbox?: BBox;
 };
-type BBox = { x0: number; y0: number; x1: number; y1: number };
+export type BBox = { x0: number; y0: number; x1: number; y1: number };
 
 export const bboxOneDimentionalOverlap = (
     x0: number,
@@ -169,9 +169,11 @@ export const compileSvg = (
                 transforms.forEach(([[a, b, c], [d, e, f]]) => {
                     path.transform(a, b, c, d, e, f, 0, 0, 1);
                 });
-                const ns = path.copy().stroke({ width: margin });
-                path.op(ns, PathKit.PathOp.UNION);
-                ns.delete();
+                if (margin !== 0) {
+                    const ns = path.copy().stroke({ width: margin });
+                    path.op(ns, PathKit.PathOp.UNION);
+                    ns.delete();
+                }
 
                 pieces.push({
                     color: 'black',

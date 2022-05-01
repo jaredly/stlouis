@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { createRoot, Root } from 'react-dom/client';
+import { Download } from './Export';
 
 const calcGrid = ({
     iw,
@@ -59,27 +60,11 @@ export const GridDemo = () => {
         ...calcGrid({ iw: 0.8, ih: 1.6, wn: 7, hn: 8, x: 13.4, y: 0 }),
         ...calcGrid({ iw: 1.6, ih: 1.6, wn: 4, hn: 4, x: 13.0, y: 13.0 }),
     ];
-    // const n = 30;
-    // const size = 0.1;
-    // for (let x = 0; x < n; x++) {
-    //     for (let y = 0; y < n; y++) {
-    //         if (x % 2 == y % 2) {
-    //             continue;
-    //         }
-    //         grids.push(
-    //             <rect
-    //                 key={`${x}:${y}`}
-    //                 x={x * size}
-    //                 y={y * size}
-    //                 width={size}
-    //                 height={size}
-    //                 fill="black"
-    //             />,
-    //         );
-    //     }
-    // }
     return (
         <div>
+            <div style={{ margin: '8px 0' }}>
+                <Download svg={ref} name={`GridDemo`} />
+            </div>
             <svg
                 width={width + 'mm'}
                 height={width + 'mm'}
