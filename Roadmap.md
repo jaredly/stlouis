@@ -1,4 +1,71 @@
 
+
+Focusing!
+2.5cm at bottom of the bottom?
+2.0 terrible
+2.3 still bad
+2.4 maybe about as good
+2.6??
+
+
+
+Power tests:
+10% power - way too light @ 200mm/s
+
+100mm/s 10% power, decent
+100mm/s 15% power, better
+200mm/s 20% power
+200mm/s 30%
+
+200mm/s 20% but 0.05 step thing instead of 0.1mm
+10%?
+
+15% at 200mm/s, 0.05 step, looks cool!
+
+
+
+
+OK on my material:
+
+20% 200mm/s 0.1 gap
+
+yeah 
+
+
+
+How large is my thing
+currently 179mm x 355mm
+
+2 2/3 feet
+
+32 inches by 20 inches
+
+but I should make 
+
+7x13 at the moment
+
+Ok, 
+
+
+6.25mm between lines
+
+26 to the second
+32.5 on the next
+39 on the third?
+13.5 to the top
+
+oh ok it's a 1/4in grid
+0.53 to the first line
+
+1/2 in margin w/ holes
+1/4 in margin outside
+
+
+# Hm ok what about
+
+- [ ] multi move please. selection yes
+- [ ] oh ok so what about my plans and such
+
 # FOR PUZZLE
 
 - [x] make a compile button

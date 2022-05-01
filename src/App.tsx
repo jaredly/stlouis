@@ -61,7 +61,7 @@ export const App = ({
 
     const [detail, setDetail] = React.useState(false);
 
-    const scaleDown = 3;
+    const scaleDown = 1.5;
 
     const w = mini && pos ? 140 : 519;
     const dx = bounds.x1 - bounds.x0;
@@ -269,7 +269,7 @@ export const App = ({
                                                             : getColor(k)
                                                     }
                                                     strokeWidth={
-                                                        sizes[k] || 0.5
+                                                        sizes[k] || 0.2
                                                     }
                                                     strokeLinecap="round"
                                                     strokeLinejoin="round"
@@ -314,57 +314,12 @@ export const App = ({
                             />
                         </g>
                         <g>
-                            {neighborhoods.features.map((feature, i) => {
-                                const isSelected =
-                                    !detail &&
-                                    selected?.type === 'place' &&
-                                    (selected.name ===
-                                        feature.properties!.NHD_NAME ||
-                                        selected.name ===
-                                            nbhNames[
-                                                feature.properties!.NHD_NAME
-                                            ]);
-
-                                const color = isSelected ? 'green' : 'red';
-
-                                return feature.geometry.type === 'Polygon' ? (
-                                    <polygon
-                                        data-name={feature.properties!.NHD_NAME}
-                                        data-piece={
-                                            feature.properties!.NHD_NAME
-                                        }
-                                        points={feature.geometry.coordinates[0]
-                                            .map(showPos)
-                                            .join(' ')}
-                                        fill="none"
-                                        strokeWidth={isSelected ? 3 : 1}
-                                        stroke={color}
-                                        key={i}
-                                    />
-                                ) : (
-                                    feature.geometry.coordinates.map((coord) =>
-                                        coord.map((path, ii) => (
-                                            <polygon
-                                                data-name={
-                                                    feature.properties!.NHD_NAME
-                                                }
-                                                data-piece={
-                                                    feature.properties!.NHD_NAME
-                                                }
-                                                points={path
-                                                    .map(showPos)
-                                                    .join(' ')}
-                                                fill="none"
-                                                strokeWidth={isSelected ? 3 : 1}
-                                                stroke={
-                                                    isSelected ? 'green' : 'red'
-                                                }
-                                                key={i + ':' + ii}
-                                            />
-                                        )),
-                                    )
-                                );
-                            })}
+                            {showNeighborhoodOutlines(
+                                neighborhoods,
+                                detail,
+                                selected,
+                                showPos,
+                            )}
                         </g>
                     </g>
                 </svg>
@@ -521,3 +476,49 @@ export const useLocalStorage = <T,>(
     }, [value]);
     return [value, setValue];
 };
+
+function showNeighborhoodOutlines(
+    neighborhoods: FeatureCollection<Polygon | MultiPolygon>,
+    detail: boolean,
+    selected:
+        | { type: 'road'; name: string; kind: string }
+        | { type: 'place'; name: string }
+        | null,
+    showPos: ([x, y]: Position) => string,
+): React.ReactNode {
+    return neighborhoods.features.map((feature, i) => {
+        const isSelected =
+            !detail &&
+            selected?.type === 'place' &&
+            (selected.name === feature.properties!.NHD_NAME ||
+                selected.name === nbhNames[feature.properties!.NHD_NAME]);
+
+        const color = 'black'; // isSelected ? 'green' : 'red';
+
+        return feature.geometry.type === 'Polygon' ? (
+            <polygon
+                data-name={feature.properties!.NHD_NAME}
+                data-piece={feature.properties!.NHD_NAME}
+                points={feature.geometry.coordinates[0].map(showPos).join(' ')}
+                fill="none"
+                strokeWidth={isSelected ? 3 : 1}
+                stroke={color}
+                key={i}
+            />
+        ) : (
+            feature.geometry.coordinates.map((coord) =>
+                coord.map((path, ii) => (
+                    <polygon
+                        data-name={feature.properties!.NHD_NAME}
+                        data-piece={feature.properties!.NHD_NAME}
+                        points={path.map(showPos).join(' ')}
+                        fill="none"
+                        strokeWidth={isSelected ? 3 : 1}
+                        stroke={color}
+                        key={i + ':' + ii}
+                    />
+                )),
+            )
+        );
+    });
+}

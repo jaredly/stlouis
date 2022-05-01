@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, Root } from 'react-dom/client';
 import * as shapefile from 'shapefile';
 import {
     Feature,
@@ -14,6 +14,7 @@ import {
 import opentype from 'opentype.js';
 import PathKitInit from 'pathkit-wasm';
 import { App } from './App';
+import { gridDemo } from './GridDemo';
 
 export const empty = {};
 
@@ -30,7 +31,7 @@ const getShp = <T extends Geometry | null = Geometry, P = GeoJsonProperties>(
     }) as Promise<FeatureCollection<T, P>>;
 };
 
-const run = async () => {
+const run = async (root: Root) => {
     const [
         roads,
         font,
@@ -62,10 +63,8 @@ const run = async () => {
         PathKitInit({
             locateFile: (file: string) =>
                 '/node_modules/pathkit-wasm/bin/' + file,
-            // '/bin/' + file,
         }),
     ]);
-    // console.log(natural);
 
     const placeTypes: { [key: string]: Array<Feature<Point>> } = {};
     places.features.forEach((p) => {
@@ -74,7 +73,6 @@ const run = async () => {
             p as Feature<Point>,
         ]);
     });
-    // window.places = places;
     delete placeTypes['yes'];
     delete placeTypes['city'];
     delete placeTypes['island'];
@@ -83,55 +81,6 @@ const run = async () => {
     delete placeTypes['hamlet'];
     delete placeTypes['town'];
     delete placeTypes['village'];
-    console.log(boundary);
-
-    // let [x0, y0, x1, y1] = boundary.bbox!;
-    // const bounds = { x0, y0, x1, y1 };
-
-    // const w = 519;
-    // const dx = bounds.x1 - bounds.x0;
-    // const dy = bounds.y1 - bounds.y0;
-    // const h = (dy / dx) * w;
-
-    // const px = (x: number) => ((x - bounds.x0) / dx) * w;
-    // const py = (y: number) => (1 - (y - bounds.y0) / dy) * h;
-    // // const showPos = ([x, y]: Position) =>
-    // //     `${((x - bounds.x0) / dx) * w},${(1 - (y - bounds.y0) / dy) * h}`;
-
-    // const addPoly = (path: Position[]) => {
-    //     const inner = PathKit.NewPath();
-    //     path.forEach((coord, i) => {
-    //         if (i === 0) {
-    //             inner.moveTo(px(coord[0]), py(coord[1]));
-    //         } else {
-    //             inner.lineTo(px(coord[0]), py(coord[1]));
-    //         }
-    //     });
-    //     inner.close();
-    //     allBoundary.op(inner, PathKit.PathOp.UNION);
-    //     inner.delete();
-    // };
-
-    // const allBoundary = PathKit.NewPath();
-    // neighborhoods.features.forEach((feature) => {
-    //     if (feature.geometry.type === 'Polygon') {
-    //         feature.geometry.coordinates.forEach(addPoly);
-    //     } else {
-    //         feature.geometry.coordinates.forEach((paths) =>
-    //             paths.forEach(addPoly),
-    //         );
-    //     }
-    // });
-    // // allBoundary.simplify();
-    // // allBoundary.setFillType(PathKit.FillType.EVENODD);
-    // const boundaryPath = allBoundary.toSVGString();
-    // const expanded = allBoundary
-    //     .copy()
-    //     .stroke({ width: 20, join: PathKit.StrokeJoin.ROUND });
-    // allBoundary.op(expanded, PathKit.PathOp.UNION);
-    // expanded.delete();
-    // const expandedPath = allBoundary.toSVGString();
-    // allBoundary.delete();
 
     root.render(
         <App
@@ -144,11 +93,15 @@ const run = async () => {
             neighborhoods={neighborhoods}
             waterways={waterways}
             natural={natural}
-            // boundaryPath={boundaryPath}
-            // expandedPath={expandedPath}
-            // PathKit={PathKit}
         />,
     );
 };
 
-run().catch(console.error);
+switch (window.location.search) {
+    case '?grid':
+        gridDemo(root);
+        break;
+    default:
+        run(root).catch(console.error);
+        break;
+}
