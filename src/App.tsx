@@ -396,9 +396,9 @@ const roadColor: { [key: string]: string } = {
     others: '#222',
     unclassified: '#444',
     cycleway: '#444',
-    service: '#888',
-    track: '#888',
-    construction: '#888',
+    service: '#666',
+    track: '#666',
+    construction: '#666',
 };
 const getColor = (type: string) => roadColor[type] || '#000';
 const skip = [

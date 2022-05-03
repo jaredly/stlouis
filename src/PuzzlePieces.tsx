@@ -39,12 +39,38 @@ export const PuzzlePieces = ({
     const [selection, setSelection] = React.useState(
         null as null | Array<number>,
     );
+    const currentSel = React.useRef(selection);
+    currentSel.current = selection;
     const [moving, setMoving] = useDrag(
         (moving) => {
             if (!moving.moved) {
+                setSelection(null);
                 return;
             }
-            if (moving.extra === 'select') {
+            if (moving.extra === 'select-move') {
+                setPositions((pos) => {
+                    const r = { ...pos };
+                    currentSel.current!.forEach((i) => {
+                        const key = `piece-${i}`;
+                        if (!r[key]) {
+                            const x =
+                                (pieces[i].bbox!.x1 + pieces[i].bbox!.x0) / 2;
+                            const y =
+                                (pieces[i].bbox!.y1 + pieces[i].bbox!.y0) / 2;
+                            let cx = x * 1.2;
+                            let cy = y * 1.2;
+                            if (cx > width) cx -= width;
+                            if (cy > height) cy -= height;
+                            r[key] = { x: cx, y: cy, rotate: 0 };
+                        }
+                        const dx = moving.origin.x - moving.pos.x;
+                        const dy = moving.origin.y - moving.pos.y;
+                        r[key].x -= dx;
+                        r[key].y -= dy;
+                    });
+                    return r;
+                });
+            } else if (moving.extra === 'select') {
                 const bbox: BBox = {
                     x0: Math.min(moving.origin.x, moving.pos.x),
                     y0: Math.min(moving.origin.y, moving.pos.y),
@@ -62,8 +88,6 @@ export const PuzzlePieces = ({
                             if (cx > width) cx -= width;
                             if (cy > height) cy -= height;
                             const pos = positions[key] ?? { x: cx, y: cy };
-                            const w = Math.abs(piece.bbox!.x1 - piece.bbox!.x0);
-                            const h = Math.abs(piece.bbox!.y1 - piece.bbox!.y0);
 
                             return bboxIntersect(bbox, {
                                 x0: pos.x - 10,
@@ -74,23 +98,24 @@ export const PuzzlePieces = ({
                                 ? i
                                 : null;
                         })
-                        .filter(Boolean) as Array<number>,
+                        .filter((x) => x != null) as Array<number>,
                 );
                 return;
+            } else {
+                setPositions((pos) => {
+                    const r = { ...pos };
+                    if (moving.extra === 'rotate') {
+                        r[moving.key] = {
+                            ...moving.origin,
+                            ...r[moving.key],
+                            rotate: angleTo(moving.origin, moving.pos),
+                        };
+                    } else {
+                        r[moving.key] = { ...r[moving.key], ...moving.pos };
+                    }
+                    return r;
+                });
             }
-            setPositions((pos) => {
-                const r = { ...pos };
-                if (moving.extra === 'rotate') {
-                    r[moving.key] = {
-                        ...moving.origin,
-                        ...r[moving.key],
-                        rotate: angleTo(moving.origin, moving.pos),
-                    };
-                } else {
-                    r[moving.key] = { ...r[moving.key], ...moving.pos };
-                }
-                return r;
-            });
         },
         backPos,
         5,
@@ -105,7 +130,9 @@ export const PuzzlePieces = ({
                 justifyContent: 'center',
             }}
         >
-            <Download name={`puzzle.svg`} svg={psvg} />
+            <div>
+                <Download name={`puzzle.svg`} svg={psvg} />
+            </div>
             <svg
                 ref={psvg}
                 style={{ outline: '1px solid magenta' }}
@@ -178,10 +205,19 @@ export const PuzzlePieces = ({
                     if (cx > width) cx -= width;
                     if (cy > height) cy -= height;
 
-                    const pos =
+                    let pos =
                         moving?.key === key && !moving.extra && moving.moved
                             ? moving.pos
                             : positions[key] ?? { x: cx, y: cy };
+
+                    if (
+                        moving?.extra === 'select-move' &&
+                        selection?.includes(i)
+                    ) {
+                        pos = { ...pos };
+                        pos.x -= moving.origin.x - moving.pos.x;
+                        pos.y -= moving.origin.y - moving.pos.y;
+                    }
 
                     const rotate =
                         moving?.extra === 'rotate' &&
@@ -192,23 +228,34 @@ export const PuzzlePieces = ({
 
                     return (
                         <g
-                            transform={`translate(${pos ? pos.x : cx},${
-                                pos ? pos.y : cy
-                            })`}
+                            transform={`translate(${pos.x},${pos.y})`}
                             key={i}
+                            data-piece={i}
                             onMouseDown={(evt) => {
                                 if (evt.button !== 0) {
                                     return;
                                 }
                                 evt.stopPropagation();
                                 const pos = backPos(evt);
-                                setMoving({
-                                    origin: pos,
-                                    pos,
-                                    key: `piece-${i}`,
-                                    moved: false,
-                                    extra: evt.shiftKey ? 'rotate' : undefined,
-                                });
+                                if (selection?.length) {
+                                    setMoving({
+                                        origin: pos,
+                                        pos,
+                                        key: `select-move`,
+                                        moved: false,
+                                        extra: `select-move`,
+                                    });
+                                } else {
+                                    setMoving({
+                                        origin: pos,
+                                        pos,
+                                        key: `piece-${i}`,
+                                        moved: false,
+                                        extra: evt.shiftKey
+                                            ? 'rotate'
+                                            : undefined,
+                                    });
+                                }
                             }}
                         >
                             <g
@@ -218,7 +265,6 @@ export const PuzzlePieces = ({
                             >
                                 <path
                                     d={piece.path}
-                                    // fill="rgba(0,0,0,0.1)"
                                     fill={
                                         selection?.includes(i) ? 'red' : 'white'
                                     }
