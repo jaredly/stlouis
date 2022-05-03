@@ -156,6 +156,7 @@ declare module 'pathkit-wasm' {
 
     export type PathKit = {
         StrokeJoin: { [key in keyof typeof Join]: Join };
+        StrokeCap: { [key in keyof typeof Cap]: Cap };
         PathOp: { [key in keyof typeof PathOp]: PathOp };
         FillType: { [key in keyof typeof FillType]: FillType };
         /** Returns an empty `SkPath` object.  */

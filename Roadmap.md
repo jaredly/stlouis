@@ -1,4 +1,44 @@
 
+# EARRINGS
+
+- one version, where we cut outlines of the roads (can play with different road thicknesses)
+- one version, where we do the same but it's neighborhoods? idk
+    - ooh that might look nicely filagree
+
+# BOX
+
+177mm by 228mm by 51mm (7in x 9in x 2in)
+
+LID: engraved w/ the outline of the neighborhoods
+
+LID EMBED: 100mm/s 20% power, gives us an extra mm looks like?
+
+Estimated time:
+21 minutes
+10.5 minutes
+8 minutes
+8 minute
+
+47 minutes!
+
+
+# CUTTING
+
+Second sheet started, but soon into it there was a misalignment 😬 I think because
+I was start fully to the left side of the bed? Looks like I'll need to give it some
+more margin 🤷‍♂️.
+Starting over at like 9:35 or something.
+lol this is taking forever. 10:50 and it's 55% done 🙄.
+Finished the whole sheet 2 (incl 30min of cutting) at noon.
+Starting sheet 3 at 12:10.
+Finished at 1:51.
+Vector cut, 20%, 10mm/s 4 passes.
+
+First sheet done!
+
+Ugh restarted around 1pm. dang it.
+70% at 2:15
+
 
 OK my k40 can do
 - 320mm by 200mm

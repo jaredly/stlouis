@@ -15,6 +15,7 @@ import opentype from 'opentype.js';
 import PathKitInit from 'pathkit-wasm';
 import { App } from './App';
 import { gridDemo } from './GridDemo';
+import { Earrings } from './Earrings';
 
 export const empty = {};
 
@@ -47,12 +48,8 @@ const run = async (root: Root) => {
             (r): Promise<{ [key: string]: Array<Feature<LineString>> }> =>
                 r.json(),
         ),
-        opentype.load(
-            '/data/Open_Sans/static/OpenSans_Condensed/OpenSans_Condensed-Regular.ttf',
-        ),
-        opentype.load(
-            '/data/Open_Sans/static/OpenSans_Condensed/OpenSans_Condensed-Bold.ttf',
-        ),
+        opentype.load('/data/Open_Sans/static/OpenSans/OpenSans-Regular.ttf'),
+        opentype.load('/data/Open_Sans/static/OpenSans/OpenSans-Regular.ttf'),
         getShp('./data/stl_boundary/stl_boundary'),
         getShp('./data/places'),
         getShp<Polygon | MultiPolygon>(
@@ -82,8 +79,21 @@ const run = async (root: Root) => {
     delete placeTypes['town'];
     delete placeTypes['village'];
 
+    // root.render(
+    //     <App
+    //         types={roads}
+    //         boundary={boundary}
+    //         places={placeTypes}
+    //         font={font}
+    //         headerFont={headerFont}
+    //         PathKit={PathKit}
+    //         neighborhoods={neighborhoods}
+    //         waterways={waterways}
+    //         natural={natural}
+    //     />,
+    // );
     root.render(
-        <App
+        <Earrings
             types={roads}
             boundary={boundary}
             places={placeTypes}

@@ -12,7 +12,7 @@ import proj4 from 'proj4';
 import { ShowNames } from './ShowNames';
 import { ShowPlaces } from './ShowPlaces';
 import opentype from 'opentype.js';
-import { PathKit } from 'pathkit-wasm';
+import { Path, PathKit } from 'pathkit-wasm';
 import { PuzzlePieces } from './PuzzlePieces';
 import { calculateCenters } from './calculateCenters';
 import { Download } from './Export';
@@ -94,12 +94,25 @@ export const App = ({
     ];
     const inBounds = ([x, y]: Position) =>
         bounds.x0 <= x && x <= bounds.x1 && bounds.y0 <= y && y <= bounds.y1;
+    const place = ([x, y]: Position) => [
+        ((x - bounds.x0) / dx) * w,
+        (1 - (y - bounds.y0) / dy) * h,
+    ];
     const showPos = ([x, y]: Position) =>
         `${((x - bounds.x0) / dx) * w},${(1 - (y - bounds.y0) / dy) * h}`;
 
     const t = Object.keys(types)
         .sort((a, b) => (sizes[a] || 0) - (sizes[b] || 0))
         .filter((t) => !skip.includes(t));
+    // const t = ['trunk', 'motorway', 'primary'];
+
+    const [svgBoundary, svgOuter] = combineNeighborhoods(
+        PathKit,
+        neighborhoods,
+        place,
+        1,
+        30,
+    );
 
     const centers = React.useMemo(() => {
         return calculateCenters(types);
@@ -178,27 +191,7 @@ export const App = ({
                     }}
                 >
                     <clipPath id="rect-clip">
-                        {neighborhoods.features.map((feature, i) =>
-                            feature.geometry.type === 'Polygon'
-                                ? feature.geometry.coordinates.map((coord) => (
-                                      <polygon
-                                          points={coord.map(showPos).join(' ')}
-                                          fill="black"
-                                          key={i}
-                                      />
-                                  ))
-                                : feature.geometry.coordinates.map((coord) =>
-                                      coord.map((path, ii) => (
-                                          <polygon
-                                              points={path
-                                                  .map(showPos)
-                                                  .join(' ')}
-                                              fill="black"
-                                              key={i + ':' + ii}
-                                          />
-                                      )),
-                                  ),
-                        )}
+                        <path d={svgBoundary} fill="black" />
                     </clipPath>
                     <rect
                         x={-10}
@@ -209,8 +202,12 @@ export const App = ({
                         stroke="red"
                         strokeWidth={1}
                     />
+                    {/* <path d={svgOuter} fill="black" />
+                    <path d={svgBoundary} fill="red" /> */}
                     <g
-                        clipPath={detail ? 'url(#rect-clip)' : undefined}
+                        clipPath={
+                            true || detail ? 'url(#rect-clip)' : undefined
+                        }
                         transform={
                             rotate ? `rotate(-90) translate(${-w} 0)` : ''
                         }
@@ -245,8 +242,7 @@ export const App = ({
                                 ))}
                         </g>
                         <g>
-                            {
-                                //false &&
+                            {true &&
                                 t.map(
                                     (k, ti) =>
                                         (detail || !roadColor[k]) &&
@@ -286,8 +282,7 @@ export const App = ({
                                                 />
                                             ) : null,
                                         ),
-                                )
-                            }
+                                )}
                         </g>
                         <g>
                             <ShowNames
@@ -319,6 +314,7 @@ export const App = ({
                                 detail,
                                 selected,
                                 showPos,
+                                1,
                             )}
                         </g>
                     </g>
@@ -347,6 +343,78 @@ export const dist = (a: Pos, b: Pos) => {
 //     'motorway',
 //     'trunk',
 // ];
+
+export const toSvg = (path: Path) => {
+    const svg = path.toSVGString();
+    path.delete();
+    return svg;
+};
+
+export const pointsPath = (PathKit: PathKit, points: Position[]) => {
+    const inner = PathKit.NewPath();
+    points.forEach(([x, y], i) => {
+        if (i == 0) {
+            inner.moveTo(x, y);
+        } else {
+            inner.lineTo(x, y);
+        }
+    });
+    return inner;
+};
+
+export const neighborhoodPolygons = (
+    neighborhoods: FeatureCollection<Polygon | MultiPolygon>,
+    place: ([x, y]: Position) => Position,
+) => {
+    const polygons: Position[][] = [];
+    const add = (coord: Position[]) => {
+        polygons.push(coord.map(place));
+    };
+    neighborhoods.features.forEach((feature, i) => {
+        feature.geometry.type === 'Polygon'
+            ? feature.geometry.coordinates.forEach(add)
+            : feature.geometry.coordinates.forEach((coord) => coord.map(add));
+    });
+    return polygons;
+};
+
+export const combineNeighborhoodsPath = (
+    PathKit: PathKit,
+    neighborhoods: FeatureCollection<Polygon | MultiPolygon>,
+    place: ([x, y]: Position) => Position,
+    expand: number,
+) => {
+    const pk = PathKit.NewPath();
+    neighborhoodPolygons(neighborhoods, place).forEach((points) => {
+        const inner = pointsPath(PathKit, points);
+        pk.op(inner, PathKit.PathOp.UNION);
+        inner.stroke({ width: expand });
+        pk.op(inner, PathKit.PathOp.UNION);
+        inner.delete();
+    });
+
+    pk.simplify();
+    return pk;
+};
+
+export const combineNeighborhoods = (
+    PathKit: PathKit,
+    neighborhoods: FeatureCollection<Polygon | MultiPolygon>,
+    place: ([x, y]: Position) => Position,
+    expand: number,
+    border: number,
+) => {
+    const pk = combineNeighborhoodsPath(PathKit, neighborhoods, place, expand);
+    const svg = pk.toSVGString();
+    const outer = pk
+        .copy()
+        .stroke({ width: border, join: PathKit.StrokeJoin.ROUND });
+    pk.op(outer, PathKit.PathOp.UNION);
+    outer.delete();
+    const outers = pk.toSVGString();
+    pk.delete();
+    return [svg, outers];
+};
 
 export type Pos = { x: number; y: number };
 const sizes: { [key: string]: number } = {
@@ -477,7 +545,7 @@ export const useLocalStorage = <T,>(
     return [value, setValue];
 };
 
-function showNeighborhoodOutlines(
+export function showNeighborhoodOutlines(
     neighborhoods: FeatureCollection<Polygon | MultiPolygon>,
     detail: boolean,
     selected:
@@ -485,6 +553,7 @@ function showNeighborhoodOutlines(
         | { type: 'place'; name: string }
         | null,
     showPos: ([x, y]: Position) => string,
+    size: number,
 ): React.ReactNode {
     return neighborhoods.features.map((feature, i) => {
         const isSelected =
@@ -493,7 +562,7 @@ function showNeighborhoodOutlines(
             (selected.name === feature.properties!.NHD_NAME ||
                 selected.name === nbhNames[feature.properties!.NHD_NAME]);
 
-        const color = 'black'; // isSelected ? 'green' : 'red';
+        const color = 'blue'; // isSelected ? 'green' : 'red';
 
         return feature.geometry.type === 'Polygon' ? (
             <polygon
@@ -501,7 +570,8 @@ function showNeighborhoodOutlines(
                 data-piece={feature.properties!.NHD_NAME}
                 points={feature.geometry.coordinates[0].map(showPos).join(' ')}
                 fill="none"
-                strokeWidth={isSelected ? 3 : 1}
+                strokeLinejoin="round"
+                strokeWidth={size}
                 stroke={color}
                 key={i}
             />
@@ -513,7 +583,8 @@ function showNeighborhoodOutlines(
                         data-piece={feature.properties!.NHD_NAME}
                         points={path.map(showPos).join(' ')}
                         fill="none"
-                        strokeWidth={isSelected ? 3 : 1}
+                        strokeWidth={size}
+                        strokeLinejoin="round"
                         stroke={color}
                         key={i + ':' + ii}
                     />
