@@ -172,16 +172,16 @@ export const PuzzlePieces = ({
                 <rect
                     x={0}
                     y={0}
-                    width={300 / scale}
+                    width={320 / scale}
                     height={200 / scale}
                     fill="none"
                     stroke="black"
-                    strokeWidth={2}
+                    strokeWidth={1}
                 />
                 <rect
                     x={0}
                     y={200 / scale + 10}
-                    width={300 / scale}
+                    width={320 / scale}
                     height={200 / scale}
                     fill="none"
                     stroke="black"
@@ -190,7 +190,7 @@ export const PuzzlePieces = ({
                 <rect
                     x={0}
                     y={400 / scale + 20}
-                    width={300 / scale}
+                    width={320 / scale}
                     height={200 / scale}
                     fill="none"
                     stroke="black"

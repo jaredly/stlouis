@@ -1,4 +1,12 @@
 
+
+OK my k40 can do
+- 320mm by 200mm
+
+I should cut 13in to 8.5in
+yay I have several
+
+
 Grid tests
 - 16% 100mm/s
 - 12% 100mm/s
