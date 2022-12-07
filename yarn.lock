@@ -12,6 +12,11 @@
   resolved "https://registry.yarnpkg.com/@types/node/-/node-17.0.25.tgz#527051f3c2f77aa52e5dc74e45a3da5fb2301448"
   integrity sha512-wANk6fBrUwdpY4isjWrKTufkrXdu1D2YHCot2fD/DfWxF5sMrVSA+KN7ydckvaTCh0HiqX9IVl0L5/ZoXg5M7w==
 
+"@types/opentype.js@^1.3.3":
+  version "1.3.3"
+  resolved "https://registry.yarnpkg.com/@types/opentype.js/-/opentype.js-1.3.3.tgz#1bb29123a24200c9123a03bb378eee053e505f26"
+  integrity sha512-A/SMtP/h5/AATYf82TPKEs0UTzD0NPrnCtU6knaaeFdl6PL/AgoJyl4mA941xrfHcexNu5HcjHHrwWu0Tv+bAg==
+
 "@types/proj4@^2.5.2":
   version "2.5.2"
   resolved "https://registry.yarnpkg.com/@types/proj4/-/proj4-2.5.2.tgz#e3afa4e09e5cf08d8bc74e1b3de3b2111324ee33"
@@ -292,6 +297,14 @@ opentype.js@0.11.0:
     string.prototype.codepointat "^0.2.1"
     tiny-inflate "^1.0.2"
 
+opentype.js@^1.3.4:
+  version "1.3.4"
+  resolved "https://registry.yarnpkg.com/opentype.js/-/opentype.js-1.3.4.tgz#1c0e72e46288473cc4a4c6a2dc60fd7fe6020d77"
+  integrity sha512-d2JE9RP/6uagpQAVtJoF0pJJA/fgai89Cc50Yp0EJHk+eLp6QQ7gBoblsnubRULNY132I0J1QKMJ+JTbMqz4sw==
+  dependencies:
+    string.prototype.codepointat "^0.2.1"
+    tiny-inflate "^1.0.3"
+
 path-source@0.1:
   version "0.1.3"
   resolved "https://registry.yarnpkg.com/path-source/-/path-source-0.1.3.tgz#03907c595480aa2596a15a901c44f745736e7a73"
@@ -416,7 +429,7 @@ text-to-svg@^3.1.5:
     commander "^2.11.0"
     opentype.js "0.11.0"
 
-tiny-inflate@^1.0.2:
+tiny-inflate@^1.0.2, tiny-inflate@^1.0.3:
   version "1.0.3"
   resolved "https://registry.yarnpkg.com/tiny-inflate/-/tiny-inflate-1.0.3.tgz#122715494913a1805166aaf7c93467933eea26c4"
   integrity sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw==

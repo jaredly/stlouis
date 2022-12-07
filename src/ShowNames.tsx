@@ -1,59 +1,151 @@
 import * as React from 'react';
 import { Feature, LineString, Position } from 'geojson';
+import { empty } from './run';
 import {
     Centers,
     useLocalStorage,
-    empty,
     Pos,
     labeled,
     toStl,
     fontSizes,
-} from './run';
+    Selected,
+} from './App';
 import { useDrag } from './useDrag';
+
+export const RenderText = React.memo(
+    ({
+        font,
+        text,
+        x,
+        y,
+        fontSize,
+        transform,
+        bgColor = 'white',
+    }: {
+        transform?: string;
+        font: opentype.Font;
+        text: string;
+        x: number;
+        y: number;
+        fontSize: number;
+        bgColor?: string;
+    }) => {
+        const path = React.useMemo(() => {
+            // let x = 0;
+            // text.split('\n').forEach((line) => {});
+            return text
+                .split('\n')
+                .map((line, i) =>
+                    font
+                        .getPath(
+                            line,
+                            -font.getAdvanceWidth(line, fontSize) / 2,
+                            i * fontSize,
+                            fontSize,
+                        )
+                        .toPathData(3),
+                )
+                .join(' ');
+        }, [text, x, y, fontSize]);
+        // transform-origin={`${x} ${y}`}>
+        return (
+            <g
+                transform={`translate(${x} ${y})`}
+                // transform={transform}
+                // transform-origin={`${x} ${y}`}
+            >
+                <path
+                    transform={transform}
+                    // transform-origin={`${x} ${y}`}
+                    d={path}
+                    fill={bgColor}
+                    stroke={bgColor}
+                    strokeWidth={4}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                />
+                <path
+                    transform={transform}
+                    // transform-origin={`${x} ${y}`}
+                    d={path}
+                    fill="black"
+                    stroke="none"
+                />
+            </g>
+        );
+    },
+);
 
 export const ShowNames = ({
     types,
     scalePos,
+    backPos,
+    selected,
+    setSelected,
+    inBounds,
     centers,
+    font,
 }: {
+    font: opentype.Font;
     centers: Centers;
+    inBounds: (pos: Position) => boolean;
     scalePos: (pos: Position) => Position;
+    backPos: (pos: { clientX: number; clientY: number }) => Pos;
+    selected: Selected | null;
+    setSelected: React.Dispatch<React.SetStateAction<Selected | null>>;
     types: {
         [key: string]: Array<Feature<LineString>>;
     };
 }) => {
     const [offsets, setOffsets] = useLocalStorage(
-        'names',
-        empty as { [key: string]: null | Pos },
+        'names-new',
+        empty as {
+            [key: string]: null | {
+                x: number;
+                y: number;
+                rotate?: number;
+                scale?: number;
+            };
+        },
     );
     const [moving, setMoving] = useDrag((moving) => {
+        if (!moving.moved) {
+            return;
+        }
         setOffsets((off) => {
             const r = { ...off };
-            r[moving.idx] = {
-                x: moving.pos.x - moving.origin.x,
-                y: moving.pos.y - moving.origin.y,
-            };
+            if (moving.extra === 'rotate') {
+                r[moving.key] = {
+                    ...moving.origin,
+                    ...r[moving.key],
+                    rotate: -angleTo(moving.origin, moving.pos),
+                };
+            } else {
+                r[moving.key] = { ...r[moving.key], ...moving.pos };
+            }
             return r;
         });
-    });
+    }, backPos);
 
-    let tix = 0;
     return (
         <>
-            {labeled.map((k, ti) =>
-                types[k].map((shape, i) => {
-                    const key = `${k}:${shape.properties!.name}`;
-                    if (shape !== centers[key].closest[1]) {
+            {labeled.map((k) =>
+                types[k].map((shape) => {
+                    const name = shape.properties!.name;
+                    if (!name) return;
+                    const key = `${k}:${name}`;
+                    if (shape !== centers[key].closest[1]) return;
+                    if (centers[key].totalLength < 2000) {
                         return;
                     }
                     let [_, __, center, p1, p2] = centers[key].closest;
-                    const id = tix++;
-                    const idx = Math.floor(
-                        shape.geometry.coordinates.length / 2,
-                    );
-                    const [x, y] = scalePos(
-                        toStl.forward([center.x, center.y]),
-                    );
+                    const stl =
+                        moving?.key === key && moving.moved && !moving.extra
+                            ? moving.pos
+                            : offsets[key] ?? toStl.forward(center);
+                    if (!inBounds([stl.x, stl.y])) return;
+                    if (offsets[key] === null) return;
+                    const [x, y] = scalePos([stl.x, stl.y]);
 
                     p1 = scalePos(toStl.forward(p1));
                     p2 = scalePos(toStl.forward(p2));
@@ -64,65 +156,58 @@ export const ShowNames = ({
                     if (theta < -Math.PI / 2) {
                         theta += Math.PI;
                     }
-                    const tx =
-                        moving?.idx === id
-                            ? `translate(${
-                                  (moving.pos.x - moving.origin.x) / 5
-                              }mm, ${(moving.pos.y - moving.origin.y) / 5}mm)`
-                            : offsets[id]
-                            ? `translate(${offsets[id]!.x / 5}mm, ${
-                                  offsets[id]!.y / 5
-                              }mm)`
-                            : undefined;
+                    let rotate =
+                        moving?.extra === 'rotate' &&
+                        moving?.key === key &&
+                        moving.moved
+                            ? -angleTo(moving.origin, moving.pos)
+                            : offsets[key]?.rotate ?? theta;
                     return (
                         <g
-                            key={i}
+                            key={key}
+                            data-name={name}
+                            onContextMenu={(evt) => {
+                                evt.preventDefault();
+                                setOffsets((off) => ({ ...off, [key]: null }));
+                            }}
                             onMouseDown={(evt) => {
-                                const pos = { x: evt.clientX, y: evt.clientY };
-                                setMoving({ origin: pos, pos, idx: id });
+                                if (evt.button !== 0) {
+                                    console.log('button', evt.button);
+                                    return;
+                                }
+                                setSelected({ type: 'road', kind: k, name });
+                                const pos = backPos(evt);
+                                console.log('back', backPos);
+                                setMoving({
+                                    origin: pos,
+                                    pos,
+                                    key,
+                                    moved: false,
+                                    extra: evt.shiftKey ? 'rotate' : undefined,
+                                });
                             }}
                             style={{
                                 cursor: 'pointer',
                                 userSelect: 'none',
-                                transform: tx,
                             }}
                         >
-                            <text
+                            <RenderText
+                                font={font}
+                                text={name}
                                 x={x}
                                 y={y}
-                                style={{
-                                    fontSize: fontSizes[k],
-                                    textAnchor: 'middle',
-                                    fontFamily: 'OpenSans',
-                                    transformOrigin: `${x}px ${y}px`,
-                                    transform: `rotate(${
-                                        (theta / Math.PI) * 180
-                                    }deg)`,
-                                }}
-                                stroke="white"
-                                fill="black"
-                                strokeWidth={2}
-                                strokeLinejoin="round"
-                                strokeLinecap="round"
-                            >
-                                {shape.properties!.name}
-                            </text>
-                            <text
-                                x={x}
-                                y={y}
-                                style={{
-                                    fontSize: fontSizes[k],
-                                    textAnchor: 'middle',
-                                    fontFamily: 'OpenSans',
-                                    transformOrigin: `${x}px ${y}px`,
-                                    transform: `rotate(${
-                                        (theta / Math.PI) * 180
-                                    }deg)`,
-                                }}
-                                fill="black"
-                            >
-                                {shape.properties!.name}
-                            </text>
+                                bgColor={
+                                    selected?.type === 'road' &&
+                                    selected.kind === k &&
+                                    selected.name === name
+                                        ? 'green'
+                                        : 'white'
+                                }
+                                fontSize={fontSizes[k]}
+                                transform={`rotate(${
+                                    (rotate / Math.PI) * 180
+                                })`}
+                            />
                         </g>
                     );
                 }),
@@ -130,3 +215,6 @@ export const ShowNames = ({
         </>
     );
 };
+export function angleTo(origin: Pos, pos: Pos) {
+    return Math.atan2(pos.y - origin.y, pos.x - origin.x);
+}
