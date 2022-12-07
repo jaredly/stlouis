@@ -497,7 +497,7 @@ const averagePoint = (pos: Position[]): Pos => {
     });
     return { x: cx / pos.length, y: cy / pos.length };
 };
-const justWithinBounds = (
+export const justWithinBounds = (
     inBounds: (pos: Position) => boolean,
     points: Position[],
 ) => {

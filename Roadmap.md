@@ -5,6 +5,19 @@
 - one version, where we do the same but it's neighborhoods? idk
     - ooh that might look nicely filagree
 
+
+## Neighborhoods
+
+- w=10, w=20, resized down a bit in inkscape
+
+## Roads my toads
+
+yayyyyy the earrings are so pretty.
+Scaled down to heigh=50mm for the w=20 ones, and ... h - 106 for the w=10 ones.
+
+25mm/s, 15% power to cut.
+
+
 # BOX
 
 177mm by 228mm by 51mm (7in x 9in x 2in)

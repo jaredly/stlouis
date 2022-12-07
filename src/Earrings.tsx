@@ -19,9 +19,11 @@ import { Download } from './Export';
 import {
     combineNeighborhoods,
     combineNeighborhoodsPath,
+    justWithinBounds,
     neighborhoodPolygons,
     pointsPath,
     showNeighborhoodOutlines,
+    toStl,
 } from './App';
 
 export const Earrings = ({
@@ -29,6 +31,7 @@ export const Earrings = ({
     neighborhoods,
     PathKit,
     places,
+    types,
 }: {
     PathKit: PathKit;
     types: { [key: string]: Array<Feature<LineString>> };
@@ -66,6 +69,10 @@ export const Earrings = ({
     const fullWidth = (rotW + viewMargin * 2) / scaleDown;
     const fullHeight = (rotH + viewMargin * 2) / scaleDown;
 
+    type Style = 'nbh' | 'roads' | 'clip';
+
+    const [style, setStyle] = React.useState('nbh' as Style);
+
     const showPos = ([x, y]: Position) =>
         `${((x - bounds.x0) / dx) * w},${(1 - (y - bounds.y0) / dy) * h}`;
 
@@ -73,10 +80,17 @@ export const Earrings = ({
         ((x - bounds.x0) / dx) * w,
         (1 - (y - bounds.y0) / dy) * h,
     ];
+    const inBounds = ([x, y]: Position) =>
+        bounds.x0 <= x && x <= bounds.x1 && bounds.y0 <= y && y <= bounds.y1;
 
     const [svgPath, mode, outline] = React.useMemo(() => {
         const size = 10;
         console.log('opping');
+        const start = Date.now();
+
+        // roads = the major roads
+        // nbh   = neighborhoods
+        // clip  = just the outline
 
         const clipPath = PathKit.NewPath();
         const shapePath = PathKit.NewPath();
@@ -97,8 +111,11 @@ export const Earrings = ({
                 });
                 inner.simplify();
                 clipPath.op(mid, PathKit.PathOp.UNION);
-                shapePath.op(inner, PathKit.PathOp.UNION);
-                // shapePath.simplify();
+
+                if (style === 'nbh') {
+                    shapePath.op(inner, PathKit.PathOp.UNION);
+                }
+
                 inner.delete();
                 mid.delete();
             });
@@ -112,10 +129,43 @@ export const Earrings = ({
         });
         clipPath.op(enlarge, PathKit.PathOp.UNION);
         enlarge.delete();
+
+        if (style === 'roads') {
+            const t = ['trunk', 'motorway', 'primary'];
+
+            t.forEach((k, ti) =>
+                types[k].forEach((shape, i) => {
+                    if (
+                        shape.geometry.coordinates
+                            .map(toStl.forward)
+                            .some(inBounds)
+                    ) {
+                        console.log('a road', ti, i);
+                        const inner = pointsPath(
+                            PathKit,
+                            justWithinBounds(
+                                inBounds,
+                                (shape.geometry as LineString).coordinates.map(
+                                    toStl.forward,
+                                ),
+                            ).map(place),
+                        );
+                        inner.stroke({
+                            width: sizes[k],
+                            join: PathKit.StrokeJoin.ROUND,
+                            cap: PathKit.StrokeCap.ROUND,
+                        });
+                        inner.op(clipPath, PathKit.PathOp.INTERSECT);
+                        shapePath.op(inner, PathKit.PathOp.UNION);
+                    }
+                }),
+            );
+        }
+
         const outline = clipPath.toSVGString();
 
         enlarge = clipPath.copy().stroke({
-            width: size, // * 2,
+            width: size / 2, // * 2,
             // join: PathKit.StrokeJoin.ROUND,
             // cap: PathKit.StrokeCap.ROUND,
         });
@@ -132,22 +182,30 @@ export const Earrings = ({
         const svg = shapePath.toSVGString();
         const mode = shapePath.getFillTypeString();
         shapePath.delete();
-        console.log('opped');
+        const secs = (Date.now() - start) / 1000;
+        console.log('opped', (secs / 60) | 0, 'min', secs % 60, 'seconds');
 
         // const path = combineNeighborhoodsPath(PathKit, neighborhoods, place, 1)
         return [svg, mode, outline];
-    }, [neighborhoods]);
+    }, [neighborhoods, style]);
 
     const ref = React.useRef(null);
 
     return (
         <div>
-            <Download svg={ref} name="Earring" />
+            <div>
+                <Download svg={ref} name="Earring" />
+                {['nbh', 'roads', 'clip'].map((name) => (
+                    <button key={name} onClick={() => setStyle(name as Style)}>
+                        {name}
+                    </button>
+                ))}
+            </div>
             <svg
                 width={fullWidth + 'mm'}
                 ref={ref}
                 height={fullHeight + 'mm'}
-                style={{ outline: '1px solid magenta' }}
+                style={{ outline: '1px solid magenta', margin: 8 }}
                 viewBox={`${-viewMargin} ${-viewMargin} ${
                     rotW + viewMargin * 2
                 } ${rotH + viewMargin * 2}`}
@@ -160,13 +218,13 @@ export const Earrings = ({
                     fill="none"
                     fillRule={mode}
                 />
-                {/* <path
+                <path
                     d={outline}
                     stroke="blue"
                     strokeWidth={1}
                     fill="none"
                     // fillRule={mode}
-                /> */}
+                />
                 <g
                 // clipPath={'url(#rect-clip)'}
                 // transform={rotate ? `rotate(-90) translate(${-w} 0)` : ''}
@@ -276,8 +334,11 @@ export const Earrings = ({
 const sizes: { [key: string]: number } = {
     trunk: 20,
     motorway: 20,
-    primary: 10,
-    secondary: 2,
-    tertiary: 1,
-    residential: 0.5,
+
+    // primary: 10,
+    // secondary: 2,
+    // tertiary: 1,
+    // residential: 0.5,
+
+    primary: 20,
 };
